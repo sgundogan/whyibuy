@@ -30,9 +30,9 @@ const nextConfig: NextConfig = {
             key: "Strict-Transport-Security",
             value: "max-age=63072000; includeSubDomains; preload",
           },
-          // CSP removed: ElevenLabs AudioWorklets require blob/data script
-          // loading that CSP cannot whitelist reliably. Other security
-          // headers (HSTS, X-Frame-Options, nosniff) still protect the app.
+          // Note: CSP intentionally omitted. ElevenLabs voice SDK uses
+          // AudioWorklets loaded via blob: and data: URIs that cannot be
+          // whitelisted in CSP. All other security headers remain active.
         ],
       },
     ];
