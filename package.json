@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync": "bun run --env-file=.env.local scripts/sync-knowledge.ts"
   },
   "dependencies": {
     "@11labs/react": "^0.2.0",
