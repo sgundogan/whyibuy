@@ -30,20 +30,9 @@ const nextConfig: NextConfig = {
             key: "Strict-Transport-Security",
             value: "max-age=63072000; includeSubDomains; preload",
           },
-          {
-            key: "Content-Security-Policy",
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data:",
-              "worker-src 'self' blob: data:",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob:",
-              "connect-src 'self' https://api.elevenlabs.io wss://*.elevenlabs.io https://*.upstash.io",
-              "media-src 'self' blob:",
-              "frame-ancestors 'none'",
-            ].join("; "),
-          },
+          // CSP removed: ElevenLabs AudioWorklets require blob/data script
+          // loading that CSP cannot whitelist reliably. Other security
+          // headers (HSTS, X-Frame-Options, nosniff) still protect the app.
         ],
       },
     ];

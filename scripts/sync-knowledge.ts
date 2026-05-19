@@ -1,38 +1,43 @@
 /**
- * Syncs Obsidian vault markdown files to ElevenLabs knowledge base.
+ * Syncs Obsidian vault markdown files to ElevenLabs knowledge base
+ * and links them to the agent.
  *
  * Usage:
  *   bun run scripts/sync-knowledge.ts
  *
  * Reads from the wiki/ and raw/ directories in the vault,
- * strips Obsidian syntax, and uploads to ElevenLabs.
+ * strips Obsidian syntax, uploads to ElevenLabs, and updates
+ * the agent to use all synced documents.
  *
- * First run: creates all documents.
- * Subsequent runs: updates existing documents, creates new ones, skips unchanged.
- *
- * Requires ELEVENLABS_API_KEY in .env.local
+ * Requires ELEVENLABS_API_KEY and ELEVENLABS_AGENT_ID in .env.local
  */
 
-import { readFile, writeFile, readdir, mkdir } from "fs/promises";
-import { join, relative, basename } from "path";
+import { readFile, writeFile, readdir } from "fs/promises";
+import { join, relative } from "path";
 import { createHash } from "crypto";
 
 // --- Config ---
 const VAULT_ROOT = join(import.meta.dir, "../../"); // Tech Investing root
 const SYNC_DIRS = ["wiki", "raw/transcripts"];
 const SYNC_STATE_PATH = join(import.meta.dir, "../.sync-state.json");
-const API_BASE = "https://api.elevenlabs.io/v1/convai/knowledge-base";
+const API_BASE = "https://api.elevenlabs.io/v1/convai";
 const API_KEY = process.env.ELEVENLABS_API_KEY;
 const AGENT_ID = process.env.ELEVENLABS_AGENT_ID;
+const BRANCH_ID = process.env.ELEVENLABS_BRANCH_ID;
 
 if (!API_KEY) {
   console.error("Missing ELEVENLABS_API_KEY. Run with: bun run --env-file=.env.local scripts/sync-knowledge.ts");
   process.exit(1);
 }
 
+if (!AGENT_ID) {
+  console.error("Missing ELEVENLABS_AGENT_ID in .env.local");
+  process.exit(1);
+}
+
 // --- Types ---
 interface SyncState {
-  documents: Record<string, { docId: string; hash: string; updatedAt: string }>;
+  documents: Record<string, { docId: string; hash: string; name: string; updatedAt: string }>;
 }
 
 interface ElevenLabsDoc {
@@ -40,7 +45,7 @@ interface ElevenLabsDoc {
   name: string;
 }
 
-// --- Obsidian cleanup (reuses logic from prepare-vault.ts) ---
+// --- Obsidian cleanup ---
 function stripObsidianSyntax(content: string): string {
   let cleaned = content;
   cleaned = cleaned.replace(/^---\n[\s\S]*?\n---\n?/, "");
@@ -94,7 +99,7 @@ async function saveSyncState(state: SyncState): Promise<void> {
 
 // --- ElevenLabs API helpers ---
 async function createTextDoc(name: string, text: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/text`, {
+  const res = await fetch(`${API_BASE}/knowledge-base/text`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -112,24 +117,8 @@ async function createTextDoc(name: string, text: string): Promise<string> {
   return data.id;
 }
 
-async function updateTextDoc(docId: string, name: string, content: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/${docId}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      "xi-api-key": API_KEY!,
-    },
-    body: JSON.stringify({ name, content }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Failed to update "${name}" (${docId}): ${res.status} ${err}`);
-  }
-}
-
 async function deleteDoc(docId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/${docId}`, {
+  const res = await fetch(`${API_BASE}/knowledge-base/${docId}`, {
     method: "DELETE",
     headers: { "xi-api-key": API_KEY! },
   });
@@ -137,6 +126,41 @@ async function deleteDoc(docId: string): Promise<void> {
   if (!res.ok && res.status !== 404) {
     const err = await res.text();
     throw new Error(`Failed to delete ${docId}: ${res.status} ${err}`);
+  }
+}
+
+async function linkDocsToAgent(
+  docs: Array<{ id: string; name: string; type: string }>
+): Promise<void> {
+  const knowledgeBase = docs.map((d) => ({
+    type: d.type,
+    name: d.name,
+    id: d.id,
+    usage_mode: "auto",
+  }));
+
+  const url = BRANCH_ID
+    ? `${API_BASE}/agents/${AGENT_ID}?branch_id=${BRANCH_ID}`
+    : `${API_BASE}/agents/${AGENT_ID}`;
+
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "xi-api-key": API_KEY!,
+    },
+    body: JSON.stringify({
+      agent: {
+        prompt: {
+          knowledge_base: knowledgeBase,
+        },
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Failed to link docs to agent: ${res.status} ${err}`);
   }
 }
 
@@ -154,11 +178,9 @@ async function main() {
       const raw = await readFile(filePath, "utf-8");
       const cleaned = stripObsidianSyntax(raw);
 
-      // Skip very short files (likely empty templates)
       if (cleaned.length < 50) continue;
 
       const relPath = relative(VAULT_ROOT, filePath);
-      const name = relPath.replace(/\//g, " / ").replace(/\.md$/, "");
       const hash = hashContent(cleaned);
 
       currentFiles.set(relPath, { content: cleaned, hash });
@@ -169,6 +191,7 @@ async function main() {
   let updated = 0;
   let skipped = 0;
   let deleted = 0;
+  let changed = false;
 
   // Create or update documents
   for (const [relPath, { content, hash }] of currentFiles) {
@@ -181,13 +204,14 @@ async function main() {
     }
 
     if (existing) {
-      // Content changed — delete old, create new (PATCH not available on all plans)
+      // Content changed — delete old, create new
       try {
         await deleteDoc(existing.docId);
         await new Promise((r) => setTimeout(r, 300));
         const docId = await createTextDoc(name, content);
-        state.documents[relPath] = { docId, hash, updatedAt: new Date().toISOString() };
+        state.documents[relPath] = { docId, hash, name, updatedAt: new Date().toISOString() };
         updated++;
+        changed = true;
         console.log(`  updated: ${name}`);
       } catch (err) {
         console.error(`  FAILED to update: ${name}`, (err as Error).message);
@@ -196,15 +220,15 @@ async function main() {
       // New file — create
       try {
         const docId = await createTextDoc(name, content);
-        state.documents[relPath] = { docId, hash, updatedAt: new Date().toISOString() };
+        state.documents[relPath] = { docId, hash, name, updatedAt: new Date().toISOString() };
         created++;
+        changed = true;
         console.log(`  created: ${name}`);
       } catch (err) {
         console.error(`  FAILED to create: ${name}`, (err as Error).message);
       }
     }
 
-    // Rate limit: ElevenLabs API can be sensitive
     await new Promise((r) => setTimeout(r, 500));
   }
 
@@ -216,6 +240,7 @@ async function main() {
         await deleteDoc(docId);
         delete state.documents[relPath];
         deleted++;
+        changed = true;
         console.log(`  deleted: ${name}`);
       } catch (err) {
         console.error(`  FAILED to delete: ${name}`, (err as Error).message);
@@ -224,6 +249,22 @@ async function main() {
   }
 
   await saveSyncState(state);
+
+  // Link all documents to the agent (always, to ensure agent has the right docs)
+  if (changed || process.argv.includes("--force-link")) {
+    console.log("\nLinking documents to agent...");
+    try {
+      const allDocs = Object.values(state.documents).map((d) => ({
+        id: d.docId,
+        name: d.name,
+        type: "text" as const,
+      }));
+      await linkDocsToAgent(allDocs);
+      console.log(`  Linked ${allDocs.length} documents to agent ${AGENT_ID}`);
+    } catch (err) {
+      console.error("  FAILED to link docs to agent:", (err as Error).message);
+    }
+  }
 
   console.log(`\nDone! Created: ${created}, Updated: ${updated}, Skipped: ${skipped}, Deleted: ${deleted}`);
   console.log(`Total documents in knowledge base: ${Object.keys(state.documents).length}`);
