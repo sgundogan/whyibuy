@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Permissions-Policy",
-            value: "camera=(), geolocation=(), interest-cohort=()",
+            value: "camera=(), geolocation=(), interest-cohort=(), microphone=(self)",
           },
           {
             key: "X-DNS-Prefetch-Control",
