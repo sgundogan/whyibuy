@@ -181,10 +181,12 @@ async function main() {
     }
 
     if (existing) {
-      // Content changed — update
+      // Content changed — delete old, create new (PATCH not available on all plans)
       try {
-        await updateTextDoc(existing.docId, name, content);
-        state.documents[relPath] = { ...existing, hash, updatedAt: new Date().toISOString() };
+        await deleteDoc(existing.docId);
+        await new Promise((r) => setTimeout(r, 300));
+        const docId = await createTextDoc(name, content);
+        state.documents[relPath] = { docId, hash, updatedAt: new Date().toISOString() };
         updated++;
         console.log(`  updated: ${name}`);
       } catch (err) {
