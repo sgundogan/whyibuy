@@ -22,18 +22,18 @@ export function Wordmark({ showTagline = false }: WordmarkProps) {
     <div className="fixed top-11 left-1/2 -translate-x-1/2 flex flex-col items-center select-none z-10">
       <div className="flex items-baseline gap-1.5">
         <span
-          className={`${sora.className} text-[18px] font-light text-[#706860] tracking-[4px] uppercase max-md:text-[14px] max-md:tracking-[3px]`}
+          className={`${sora.className} text-[26px] font-light text-[#706860] tracking-[5px] uppercase max-md:text-[20px] max-md:tracking-[4px]`}
         >
           Investing
         </span>
         <span
-          className={`${playfair.className} text-[20px] font-medium text-[#c8a050] tracking-[1px] italic max-md:text-[16px]`}
+          className={`${playfair.className} text-[28px] font-medium text-[#c8a050] tracking-[1px] italic max-md:text-[22px]`}
         >
           Brain
         </span>
       </div>
       {showTagline && (
-        <p className="mt-2 text-[12px] text-[#706860] tracking-[0.5px] font-light whitespace-nowrap max-md:text-[11px]">
+        <p className="mt-3 text-[15px] text-[#706860] tracking-[0.5px] font-light whitespace-nowrap max-md:text-[13px]">
           Talk to my investing thesis.
         </p>
       )}
