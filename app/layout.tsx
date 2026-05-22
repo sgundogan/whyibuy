@@ -9,18 +9,61 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Investing Brain",
-  description: "Talk to my investing perspective. Voice-first AI powered by real conviction.",
+  title: {
+    default: "Investing Brain | Voice AI for Deep Tech Investing",
+    template: "%s | Investing Brain",
+  },
+  description:
+    "Talk to my investing thesis. Voice-first AI powered by real conviction in $PLTR, $HOOD, $TEM, $NBIS, and $AUR. Ask anything about my portfolio, moats, and catalysts.",
+  keywords: [
+    "investing AI",
+    "voice AI investing",
+    "tech stock analysis",
+    "PLTR",
+    "HOOD",
+    "TEM",
+    "NBIS",
+    "AUR",
+    "AI investing assistant",
+    "stock thesis",
+    "deep tech investing",
+    "moat analysis",
+  ],
+  authors: [{ name: "Serkan Gundogan" }],
+  creator: "Serkan Gundogan",
   icons: {
-    icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-    ],
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
     apple: "/apple-touch-icon.png",
   },
+  alternates: {
+    canonical: "https://whyibuy.io",
+  },
   openGraph: {
-    title: "Investing Brain",
-    description: "Talk to my investing perspective.",
+    title: "Investing Brain | Voice AI for Deep Tech Investing",
+    description:
+      "Talk to my investing thesis. Voice-first AI powered by real conviction in $PLTR, $HOOD, $TEM, $NBIS, and $AUR.",
+    url: "https://whyibuy.io",
+    siteName: "Investing Brain",
     type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Investing Brain | Voice AI for Deep Tech Investing",
+    description:
+      "Talk to my investing thesis. Voice-first AI powered by real conviction.",
+    creator: "@serkangundogan",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
   metadataBase: new URL("https://whyibuy.io"),
 };
@@ -62,6 +105,30 @@ gtag('config', 'G-50GZLG487C');`,
         />
       </head>
       <body className="h-full antialiased">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebApplication",
+              name: "Investing Brain",
+              url: "https://whyibuy.io",
+              description:
+                "Voice-first AI that lets you talk to a deep tech investing thesis covering $PLTR, $HOOD, $TEM, $NBIS, and $AUR.",
+              applicationCategory: "FinanceApplication",
+              operatingSystem: "Web",
+              author: {
+                "@type": "Person",
+                name: "Serkan Gundogan",
+              },
+              offers: {
+                "@type": "Offer",
+                price: "0",
+                priceCurrency: "USD",
+              },
+            }),
+          }}
+        />
         <noscript>
           <iframe
             src="https://www.googletagmanager.com/ns.html?id=GTM-W2D3837P"

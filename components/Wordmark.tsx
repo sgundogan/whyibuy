@@ -20,7 +20,7 @@ interface WordmarkProps {
 export function Wordmark({ showTagline = false }: WordmarkProps) {
   return (
     <div className="fixed top-11 left-1/2 -translate-x-1/2 flex flex-col items-center select-none z-10">
-      <div className="flex items-baseline gap-1.5">
+      <h1 className="flex items-baseline gap-1.5 m-0">
         <span
           className={`${sora.className} text-[26px] font-light text-[#706860] tracking-[5px] uppercase max-md:text-[20px] max-md:tracking-[4px]`}
         >
@@ -31,7 +31,7 @@ export function Wordmark({ showTagline = false }: WordmarkProps) {
         >
           Brain
         </span>
-      </div>
+      </h1>
       {showTagline && (
         <p className="mt-3 text-[15px] text-[#706860] tracking-[0.5px] font-light whitespace-nowrap max-md:text-[13px]">
           Talk to my investing thesis.
