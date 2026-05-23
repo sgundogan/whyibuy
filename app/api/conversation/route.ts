@@ -13,6 +13,16 @@ function getRedis() {
   return new Redis({ url, token });
 }
 
+/**
+ * Count active sessions by counting session:* keys with TTLs.
+ * This is drift-proof: sessions auto-expire, so the count is always accurate.
+ * No more counter that can get stuck when clients disconnect without cleanup.
+ */
+async function countActiveSessions(redis: Redis): Promise<number> {
+  const keys = await redis.keys("session:*");
+  return keys.length;
+}
+
 export async function POST(request: NextRequest) {
   const agentId = process.env.ELEVENLABS_AGENT_ID;
   if (!agentId) {
@@ -33,10 +43,9 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Too many requests" }, { status: 429 });
     }
 
-    // Concurrency check using atomic counter
-    const activeCount = await redis.incr("active_sessions");
-    if (activeCount > MAX_CONCURRENT) {
-      await redis.decr("active_sessions");
+    // Concurrency check by counting actual session keys (drift-proof)
+    const activeCount = await countActiveSessions(redis);
+    if (activeCount >= MAX_CONCURRENT) {
       return Response.json(
         { error: "Investing Brain is busy. Try again shortly." },
         { status: 503 }
@@ -66,13 +75,12 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const text = await response.text();
       console.error("ElevenLabs API error:", response.status, text);
-      if (redis) await redis.decr("active_sessions");
       return Response.json({ error: "Failed to start conversation" }, { status: 502 });
     }
 
     const data = await response.json();
 
-    // Register session in Redis with TTL
+    // Register session in Redis with TTL (auto-expires — no counter needed)
     if (redis) {
       const sessionId = crypto.randomUUID();
       await redis.set(`session:${sessionId}`, "active", { ex: SESSION_TTL_SECONDS });
@@ -82,7 +90,6 @@ export async function POST(request: NextRequest) {
     return Response.json({ signedUrl: data.signed_url });
   } catch (error) {
     console.error("Failed to get signed URL:", error);
-    if (redis) await redis.decr("active_sessions");
     return Response.json({ error: "Service unavailable" }, { status: 503 });
   }
 }
@@ -94,11 +101,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const { sessionId } = await request.json();
     if (sessionId && typeof sessionId === "string" && sessionId.length < 100) {
-      const deleted = await redis.del(`session:${sessionId}`);
-      if (deleted > 0) {
-        const count = await redis.decr("active_sessions");
-        if (count < 0) await redis.set("active_sessions", 0);
-      }
+      await redis.del(`session:${sessionId}`);
     }
   } catch {
     // Best-effort cleanup
