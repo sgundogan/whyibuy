@@ -1,7 +1,7 @@
 import { Redis } from "@upstash/redis";
 import { NextRequest } from "next/server";
 
-const MAX_CONCURRENT = 10;
+const MAX_CONCURRENT = 50;
 const SESSION_TTL_SECONDS = 600; // 10 min auto-expire
 const RATE_LIMIT_WINDOW = 60; // 1 min
 const RATE_LIMIT_MAX = 5; // 5 starts per minute per IP
