@@ -88,21 +88,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-W2D3837P');`,
           }}
         />
-        {/* Google Analytics (GA4) */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-50GZLG487C"
-          strategy="afterInteractive"
-        />
-        <Script
-          id="ga4-config"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', 'G-50GZLG487C');`,
-          }}
-        />
+        {/* GA4 is configured through GTM (GTM-W2D3837P) — no standalone gtag needed */}
       </head>
       <body className="h-full antialiased">
         <script
