@@ -218,8 +218,9 @@ export function useVoiceBrain() {
       // Use WebRTC mode — it uses <audio> HTML elements instead of
       // AudioContext + AudioWorklets. iOS Safari handles <audio autoplay>
       // much better after a user gesture, so the greeting plays reliably.
+      // WebRTC requires agentId (not signedUrl) to fetch a conversation token.
       await conversation.startSession({
-        signedUrl: data.signedUrl,
+        agentId: data.agentId,
         connectionType: "webrtc" as any,
       });
     } catch (err) {
