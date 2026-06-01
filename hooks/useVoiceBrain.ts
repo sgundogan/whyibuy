@@ -5,12 +5,29 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getStock, type Stock } from "@/lib/stocks";
 
 /**
- * iOS Safari blocks AudioContext playback unless it's created/resumed during
- * a user gesture. The ElevenLabs SDK creates its own AudioContext AFTER the
- * gesture expires (after fetch + WebSocket handshake). Fix: patch the global
- * AudioContext constructor so every new instance auto-resumes once we've
- * detected any user gesture on the page.
+ * iOS Safari audio unlock strategy:
+ *
+ * Problem: The ElevenLabs SDK creates its AudioContext AFTER the user's tap
+ * gesture expires (after fetch + WebSocket + getUserMedia). The greeting
+ * audio arrives immediately but the AudioContext is suspended, so it's silent.
+ *
+ * Solution (two layers):
+ *
+ * 1. AUDIO SESSION UNLOCK: On the orb tap, we create an AudioContext, play
+ *    a silent buffer, and keep it alive. On iOS, once ANY AudioContext has
+ *    successfully played audio during a user gesture, the entire page's
+ *    "audio session" is unlocked — new AudioContexts can also play.
+ *
+ * 2. CONSTRUCTOR PATCH: We patch the global AudioContext constructor to
+ *    auto-resume and to track every instance. After the SDK connects, we
+ *    poll all tracked contexts to ensure they're running.
  */
+
+// Shared state for audio unlock
+const trackedContexts: AudioContext[] = [];
+let audioSessionUnlocked = false;
+let unlockContext: AudioContext | null = null;
+
 function patchAudioContextForMobile() {
   if (typeof window === "undefined") return;
   if ((window as any).__audioPatchApplied) return;
@@ -20,23 +37,17 @@ function patchAudioContextForMobile() {
     window.AudioContext || (window as any).webkitAudioContext;
   if (!OrigAudioContext) return;
 
-  let gestureReceived = false;
-
-  const markGesture = () => {
-    gestureReceived = true;
-  };
-
-  // Capture phase so we detect the gesture before anything else
-  document.addEventListener("touchstart", markGesture, true);
-  document.addEventListener("touchend", markGesture, true);
-  document.addEventListener("click", markGesture, true);
+  // Store original so we can create real contexts
+  (window as any).__OrigAudioContext = OrigAudioContext;
 
   const PatchedAudioContext = function (
     this: AudioContext,
     ...args: any[]
   ): AudioContext {
     const ctx = new OrigAudioContext(...args);
-    if (gestureReceived && ctx.state === "suspended") {
+    trackedContexts.push(ctx);
+    // If audio session is unlocked, auto-resume
+    if (audioSessionUnlocked && ctx.state === "suspended") {
       ctx.resume().catch(() => {});
     }
     return ctx;
@@ -50,6 +61,51 @@ function patchAudioContextForMobile() {
   window.AudioContext = PatchedAudioContext;
   if ((window as any).webkitAudioContext) {
     (window as any).webkitAudioContext = PatchedAudioContext;
+  }
+}
+
+/**
+ * Call this during a user tap to unlock the iOS audio session.
+ * Creates an AudioContext, plays silent audio, and keeps it alive.
+ * Must be called synchronously from the tap handler (before any await).
+ */
+function unlockAudioSession() {
+  if (audioSessionUnlocked) return;
+
+  const Ctx =
+    (window as any).__OrigAudioContext ||
+    window.AudioContext ||
+    (window as any).webkitAudioContext;
+  if (!Ctx) return;
+
+  try {
+    const ctx = new Ctx() as AudioContext;
+    unlockContext = ctx;
+    const buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.start(0);
+    ctx.resume().then(() => {
+      audioSessionUnlocked = true;
+      // Resume any contexts the SDK already created
+      resumeAllTrackedContexts();
+    }).catch(() => {});
+    audioSessionUnlocked = true;
+  } catch {
+    // Ignore — desktop browsers don't need this
+  }
+}
+
+/**
+ * Resume all tracked AudioContexts. Called after audio session unlock
+ * and periodically after connection to catch late-created contexts.
+ */
+function resumeAllTrackedContexts() {
+  for (const ctx of trackedContexts) {
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
   }
 }
 
@@ -132,6 +188,9 @@ export function useVoiceBrain() {
     setErrorMessage(null);
     setOrbState("thinking");
 
+    // Unlock iOS audio session DURING the tap gesture (before any await)
+    unlockAudioSession();
+
     try {
       const res = await fetch("/api/conversation", { method: "POST" });
 
@@ -157,6 +216,15 @@ export function useVoiceBrain() {
       setSessionId(data.sessionId ?? null);
 
       await conversation.startSession({ signedUrl: data.signedUrl });
+
+      // Poll to resume any AudioContexts the SDK created during connection.
+      // The greeting audio arrives immediately — we need contexts active ASAP.
+      resumeAllTrackedContexts();
+      const poll = setInterval(() => {
+        resumeAllTrackedContexts();
+      }, 100);
+      // Stop polling after 3 seconds (contexts should be active by then)
+      setTimeout(() => clearInterval(poll), 3000);
     } catch (err) {
       console.error("Failed to start:", err);
       setOrbState("error");
