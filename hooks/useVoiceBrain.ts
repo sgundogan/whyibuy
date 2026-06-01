@@ -79,6 +79,19 @@ export function useVoiceBrain() {
     setOrbState("thinking");
 
     try {
+      // Pre-unlock audio on mobile browsers (iOS Safari requires user gesture)
+      // This must happen synchronously within the tap handler, before any await
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioCtx.state === "suspended") {
+        await audioCtx.resume();
+      }
+      // Play a silent buffer to fully unlock audio playback
+      const buffer = audioCtx.createBuffer(1, 1, 22050);
+      const source = audioCtx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioCtx.destination);
+      source.start(0);
+
       const res = await fetch("/api/conversation", { method: "POST" });
 
       if (res.status === 503) {
