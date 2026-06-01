@@ -1,8 +1,57 @@
 "use client";
 
 import { useConversation } from "@11labs/react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getStock, type Stock } from "@/lib/stocks";
+
+/**
+ * iOS Safari blocks AudioContext playback unless it's created/resumed during
+ * a user gesture. The ElevenLabs SDK creates its own AudioContext AFTER the
+ * gesture expires (after fetch + WebSocket handshake). Fix: patch the global
+ * AudioContext constructor so every new instance auto-resumes once we've
+ * detected any user gesture on the page.
+ */
+function patchAudioContextForMobile() {
+  if (typeof window === "undefined") return;
+  if ((window as any).__audioPatchApplied) return;
+  (window as any).__audioPatchApplied = true;
+
+  const OrigAudioContext =
+    window.AudioContext || (window as any).webkitAudioContext;
+  if (!OrigAudioContext) return;
+
+  let gestureReceived = false;
+
+  const markGesture = () => {
+    gestureReceived = true;
+  };
+
+  // Capture phase so we detect the gesture before anything else
+  document.addEventListener("touchstart", markGesture, true);
+  document.addEventListener("touchend", markGesture, true);
+  document.addEventListener("click", markGesture, true);
+
+  const PatchedAudioContext = function (
+    this: AudioContext,
+    ...args: any[]
+  ): AudioContext {
+    const ctx = new OrigAudioContext(...args);
+    if (gestureReceived && ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+    return ctx;
+  } as any;
+
+  PatchedAudioContext.prototype = OrigAudioContext.prototype;
+  Object.defineProperty(PatchedAudioContext, "name", {
+    value: "AudioContext",
+  });
+
+  window.AudioContext = PatchedAudioContext;
+  if ((window as any).webkitAudioContext) {
+    (window as any).webkitAudioContext = PatchedAudioContext;
+  }
+}
 
 export type OrbState = "listening" | "thinking" | "speaking" | "error";
 
@@ -13,6 +62,11 @@ export interface CaptionMessage {
 }
 
 export function useVoiceBrain() {
+  // Apply mobile audio patch once on mount
+  useEffect(() => {
+    patchAudioContextForMobile();
+  }, []);
+
   const [orbState, setOrbState] = useState<OrbState>("listening");
   const [activeStock, setActiveStock] = useState<Stock | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -79,19 +133,6 @@ export function useVoiceBrain() {
     setOrbState("thinking");
 
     try {
-      // Pre-unlock audio on mobile browsers (iOS Safari requires user gesture)
-      // This must happen synchronously within the tap handler, before any await
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (audioCtx.state === "suspended") {
-        await audioCtx.resume();
-      }
-      // Play a silent buffer to fully unlock audio playback
-      const buffer = audioCtx.createBuffer(1, 1, 22050);
-      const source = audioCtx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(audioCtx.destination);
-      source.start(0);
-
       const res = await fetch("/api/conversation", { method: "POST" });
 
       if (res.status === 503) {
