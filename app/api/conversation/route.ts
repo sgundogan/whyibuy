@@ -84,10 +84,10 @@ export async function POST(request: NextRequest) {
     if (redis) {
       const sessionId = crypto.randomUUID();
       await redis.set(`session:${sessionId}`, "active", { ex: SESSION_TTL_SECONDS });
-      return Response.json({ signedUrl: data.signed_url, sessionId });
+      return Response.json({ signedUrl: data.signed_url, agentId, sessionId });
     }
 
-    return Response.json({ signedUrl: data.signed_url });
+    return Response.json({ signedUrl: data.signed_url, agentId });
   } catch (error) {
     console.error("Failed to get signed URL:", error);
     return Response.json({ error: "Service unavailable" }, { status: 503 });

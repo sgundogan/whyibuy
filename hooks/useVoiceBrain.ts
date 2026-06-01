@@ -215,16 +215,13 @@ export function useVoiceBrain() {
       const data = await res.json();
       setSessionId(data.sessionId ?? null);
 
-      await conversation.startSession({ signedUrl: data.signedUrl });
-
-      // Poll to resume any AudioContexts the SDK created during connection.
-      // The greeting audio arrives immediately — we need contexts active ASAP.
-      resumeAllTrackedContexts();
-      const poll = setInterval(() => {
-        resumeAllTrackedContexts();
-      }, 100);
-      // Stop polling after 3 seconds (contexts should be active by then)
-      setTimeout(() => clearInterval(poll), 3000);
+      // Use WebRTC mode — it uses <audio> HTML elements instead of
+      // AudioContext + AudioWorklets. iOS Safari handles <audio autoplay>
+      // much better after a user gesture, so the greeting plays reliably.
+      await conversation.startSession({
+        signedUrl: data.signedUrl,
+        connectionType: "webrtc" as any,
+      });
     } catch (err) {
       console.error("Failed to start:", err);
       setOrbState("error");
