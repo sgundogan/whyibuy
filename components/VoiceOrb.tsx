@@ -9,9 +9,10 @@ interface VoiceOrbProps {
   onClick: () => void;
   getAmplitude?: () => number;
   isConnected?: boolean;
+  miniMode?: boolean;
 }
 
-export function VoiceOrb({ state, onClick, getAmplitude, isConnected = false }: VoiceOrbProps) {
+export function VoiceOrb({ state, onClick, getAmplitude, isConnected = false, miniMode = false }: VoiceOrbProps) {
   const [amplitude, setAmplitude] = useState(0);
   const rafRef = useRef<number>(0);
 
@@ -31,16 +32,22 @@ export function VoiceOrb({ state, onClick, getAmplitude, isConnected = false }: 
     return () => cancelAnimationFrame(rafRef.current);
   }, [state, getAmplitude]);
 
-  const orbScale = state === "listening" ? 1 + amplitude * 0.15 : 1;
+  const orbScale = state === "listening" ? 1 + amplitude * (miniMode ? 0.08 : 0.15) : 1;
 
   return (
-    <div
-      className="relative w-[420px] h-[420px] flex items-center justify-center cursor-pointer max-md:w-[300px] max-md:h-[300px]"
+    <motion.div
+      layout
+      className={
+        miniMode
+          ? "relative z-30 w-[88px] h-[88px] flex items-center justify-center cursor-pointer max-md:w-[88px] max-md:h-[88px]"
+          : "relative w-[420px] h-[420px] flex items-center justify-center cursor-pointer max-md:w-[300px] max-md:h-[300px]"
+      }
+      transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
       onClick={onClick}
     >
-      {/* Pulsing rings */}
+      {/* Pulsing rings — hidden in mini mode */}
       <AnimatePresence>
-        {(state === "listening" || state === "speaking") && (
+        {!miniMode && (state === "listening" || state === "speaking") && (
           <>
             <Ring delay={0} size={290} state={state} />
             <Ring delay={0.3} size={340} state={state} />
@@ -55,7 +62,11 @@ export function VoiceOrb({ state, onClick, getAmplitude, isConnected = false }: 
       <AnimatePresence>
         {state === "thinking" && (
           <motion.div
-            className="absolute w-[265px] h-[265px] rounded-full max-md:w-[200px] max-md:h-[200px]"
+            className={
+              miniMode
+                ? "absolute w-[76px] h-[76px] rounded-full max-md:w-[76px] max-md:h-[76px]"
+                : "absolute w-[265px] h-[265px] rounded-full max-md:w-[200px] max-md:h-[200px]"
+            }
             style={{
               border: "1.5px solid transparent",
               borderTopColor: "rgba(220, 180, 70, 0.25)",
@@ -73,7 +84,11 @@ export function VoiceOrb({ state, onClick, getAmplitude, isConnected = false }: 
 
       {/* The orb */}
       <motion.div
-        className="w-[240px] h-[240px] rounded-full relative z-10 max-md:w-[180px] max-md:h-[180px]"
+        className={
+          miniMode
+            ? "w-[64px] h-[64px] rounded-full relative z-10 max-md:w-[64px] max-md:h-[64px]"
+            : "w-[240px] h-[240px] rounded-full relative z-10 max-md:w-[180px] max-md:h-[180px]"
+        }
         style={{
           background: `radial-gradient(circle at 45% 40%,
             rgba(220, 170, 60, 0.15) 0%,
@@ -108,19 +123,19 @@ export function VoiceOrb({ state, onClick, getAmplitude, isConnected = false }: 
           }}
         />
 
-        {/* Mic icon — visible only before connection */}
+        {/* Mic icon — always visible on the orb */}
         <AnimatePresence>
-          {!isConnected && state !== "thinking" && (
+          {state !== "thinking" && (
             <motion.div
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.25 }}
+              animate={{ opacity: state === "speaking" ? 0.15 : state === "listening" ? 0.35 : 0.4 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4 }}
             >
               <svg
-                width="28"
-                height="28"
+                width={miniMode ? "20" : "28"}
+                height={miniMode ? "20" : "28"}
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="rgba(220, 180, 70, 1)"
@@ -137,7 +152,7 @@ export function VoiceOrb({ state, onClick, getAmplitude, isConnected = false }: 
           )}
         </AnimatePresence>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -150,14 +165,16 @@ function Ring({
   size: number;
   state: OrbState;
 }) {
+  const mobileSize = Math.round(size * 0.62);
   return (
     <motion.div
-      className="absolute rounded-full"
+      className="absolute rounded-full max-md:!w-[var(--ms)] max-md:!h-[var(--ms)]"
       style={{
         width: size,
         height: size,
+        "--ms": `${mobileSize}px`,
         border: `1px solid rgba(200, 160, 60, 0.06)`,
-      }}
+      } as React.CSSProperties}
       initial={{ opacity: 0, scale: 0.85 }}
       animate={{ opacity: [0.4, 0], scale: [0.85, 1.2] }}
       exit={{ opacity: 0 }}

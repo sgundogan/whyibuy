@@ -3,6 +3,7 @@
 import { useConversation } from "@11labs/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getStock, type Stock } from "@/lib/stocks";
+import { SCENE_REGISTRY } from "@/lib/scenes-data";
 
 /**
  * iOS Safari audio unlock strategy:
@@ -111,6 +112,50 @@ function resumeAllTrackedContexts() {
 
 export type OrbState = "listening" | "thinking" | "speaking" | "error";
 
+export type ChartType = "bar" | "line" | "metric" | "donut";
+
+export interface DataPoint {
+  label: string;
+  value: number;
+  /**
+   * Optional display unit. The chart formatter bakes the unit into the rendered
+   * value so labels can stay clean.
+   *
+   * Examples:
+   * - "$M" + 1067 → "$1.07B" (auto-compacts >=1000)
+   * - "$M" + 399 → "$399M"
+   * - "$B" + 9.3 → "$9.3B"
+   * - "$" + 1695 → "$1,695"
+   * - "%" + 50 → "50%"
+   * - "%" + 0.5 → "50%" (auto-detects ratio form)
+   * - "M" + 27.4 → "27.4M"
+   * - "K" + 370 → "370K"
+   * - "GW" + 3.5 → "3.5 GW"
+   * - "PB" + 500 → "500 PB"
+   */
+  unit?: string;
+  highlight?: boolean;
+}
+
+export interface SceneData {
+  chart_type: ChartType;
+  title: string;
+  data: DataPoint[];
+  annotation?: string;
+  source?: string;
+}
+
+export type ActiveScene = SceneData | null;
+
+// Backwards-compat alias for legacy ElevenLabs scene_ids.
+// New scene_ids follow TICKER_TOPIC convention (see lib/scenes-data.ts).
+const LEGACY_SCENE_ALIASES: Record<string, string> = {
+  RevenueGrowth: "PLTR_revenue",
+  ValuationCase: "PLTR_metrics",
+  StockPrice: "PLTR_stock",
+  MoatDiagram: "PLTR_moat",
+};
+
 export interface CaptionMessage {
   text: string;
   source: "user" | "ai";
@@ -125,10 +170,13 @@ export function useVoiceBrain() {
 
   const [orbState, setOrbState] = useState<OrbState>("listening");
   const [activeStock, setActiveStock] = useState<Stock | null>(null);
+  const [activeScene, setActiveScene] = useState<ActiveScene>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentCaption, setCurrentCaption] = useState<CaptionMessage | null>(null);
   const captionTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const sceneDismissRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const isConnectedRef = useRef(false);
 
   const conversation = useConversation({
     clientTools: {
@@ -140,15 +188,61 @@ export function useVoiceBrain() {
         }
         return "displayed";
       },
+      show_scene: (parameters: Record<string, string>) => {
+        if (!isConnectedRef.current) return "not connected";
+        try {
+          const rawSceneId = parameters.scene_id || parameters.sceneId || "";
+          const sceneId = LEGACY_SCENE_ALIASES[rawSceneId] ?? rawSceneId;
+          const registeredScene = SCENE_REGISTRY[sceneId];
+
+          let scene: SceneData;
+
+          if (registeredScene) {
+            scene = registeredScene;
+          } else {
+            const chartType = parameters.chart_type || parameters.chartType || "bar";
+            const title = parameters.title || "Data";
+            const annotation = parameters.annotation || "";
+            const source = parameters.source || "";
+
+            let data: DataPoint[] = [];
+            const rawData = parameters.data || "[]";
+            try {
+              data = JSON.parse(rawData);
+            } catch {
+              return "invalid data format";
+            }
+
+            if (!data.length) return "no data";
+
+            scene = { chart_type: chartType as ChartType, title, data, annotation, source };
+          }
+
+          setActiveScene(scene);
+          // No auto-dismiss timer. Scene persists until:
+          //   (a) the AI calls show_scene again with a new topic, or
+          //   (b) the conversation ends.
+          // This matches the "topic, not time" model — the chart stays visible
+          // for follow-up questions on the same topic.
+          clearTimeout(sceneDismissRef.current);
+          return "displayed";
+        } catch {
+          return "error displaying scene";
+        }
+      },
     },
     onConnect: () => {
+      isConnectedRef.current = true;
       setOrbState("listening");
       setErrorMessage(null);
     },
     onDisconnect: () => {
+      isConnectedRef.current = false;
       setOrbState("listening");
       setActiveStock(null);
+      setActiveScene(null);
       clearTimeout(captionTimeoutRef.current);
+      clearTimeout(sceneDismissRef.current);
       setCurrentCaption(null);
     },
     onError: (message: string) => {
@@ -233,6 +327,8 @@ export function useVoiceBrain() {
   const endConversation = useCallback(async () => {
     await conversation.endSession();
     setActiveStock(null);
+    setActiveScene(null);
+    clearTimeout(sceneDismissRef.current);
 
     if (sessionId) {
       fetch("/api/conversation", {
@@ -243,6 +339,11 @@ export function useVoiceBrain() {
     }
   }, [conversation, sessionId]);
 
+  const dismissScene = useCallback(() => {
+    setActiveScene(null);
+    clearTimeout(sceneDismissRef.current);
+  }, []);
+
   const getAmplitude = useCallback(() => {
     return conversation.getInputVolume();
   }, [conversation]);
@@ -250,12 +351,14 @@ export function useVoiceBrain() {
   return {
     orbState,
     activeStock,
+    activeScene,
     errorMessage,
     currentCaption,
     isConnected: status === "connected",
     isSpeaking: conversation.isSpeaking,
     startConversation,
     endConversation,
+    dismissScene,
     getAmplitude,
   };
 }
