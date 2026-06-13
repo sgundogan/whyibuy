@@ -348,6 +348,19 @@ export function useVoiceBrain() {
     return conversation.getInputVolume();
   }, [conversation]);
 
+  /**
+   * Send a text user message into the live conversation. Used by suggested
+   * question chips so a tap behaves identically to the user speaking the
+   * phrase out loud. Safe to call before the session is fully connected —
+   * the ElevenLabs SDK queues the message until the WebRTC channel is ready.
+   */
+  const sendUserMessage = useCallback(
+    (text: string) => {
+      conversation.sendUserMessage(text);
+    },
+    [conversation],
+  );
+
   return {
     orbState,
     activeStock,
@@ -360,5 +373,6 @@ export function useVoiceBrain() {
     endConversation,
     dismissScene,
     getAmplitude,
+    sendUserMessage,
   };
 }

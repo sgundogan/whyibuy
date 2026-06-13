@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { VoiceOrb } from "./VoiceOrb";
 import { StockBadge } from "./StockBadge";
+import { SuggestedQuestions, type SuggestedQuestion } from "./SuggestedQuestions";
 import { SceneOrchestrator } from "./scenes/SceneOrchestrator";
 import { useVoiceBrain } from "@/hooks/useVoiceBrain";
 import type { ActiveScene, SceneData } from "@/hooks/useVoiceBrain";
@@ -52,7 +53,40 @@ export function VoiceScreen() {
     startConversation,
     endConversation,
     getAmplitude,
+    sendUserMessage,
   } = useVoiceBrain();
+
+  // Once the user interacts (taps orb or picks a suggested question), hide the
+  // suggestion chips for the rest of this session. They're training wheels —
+  // not permanent UI.
+  const [hasInteracted, setHasInteracted] = useState(false);
+
+  // Queue a chip-selected question and flush once the conversation is
+  // connected. The SDK queues internally too, but tracking it explicitly here
+  // lets us debounce double-clicks and keeps the flush deterministic across
+  // the WebRTC handshake.
+  const queuedQuestionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    const q = queuedQuestionRef.current;
+    if (!q) return;
+    queuedQuestionRef.current = null;
+    sendUserMessage(q);
+  }, [isConnected, sendUserMessage]);
+
+  const handleSuggestedSelect = async (q: SuggestedQuestion) => {
+    setHasInteracted(true);
+    if (isConnected) {
+      sendUserMessage(q.text);
+      return;
+    }
+    // Not connected yet — queue the message and kick off the session. The
+    // useEffect above flushes once isConnected flips true.
+    queuedQuestionRef.current = q.text;
+    setHasEnded(false);
+    await startConversation();
+  };
 
   const activeScene = devScene ?? liveScene;
   const sceneActive = activeScene !== null;
@@ -72,6 +106,7 @@ export function VoiceScreen() {
   }, [sceneActive]);
 
   const handleOrbClick = async () => {
+    setHasInteracted(true);
     if (isConnected) {
       await endConversation();
       setHasEnded(true);
@@ -89,7 +124,14 @@ export function VoiceScreen() {
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center relative overflow-hidden">
-      {!sceneActive && <StockBadge stock={activeStock} isConnected={isConnected} />}
+      {/* Stock badge only renders for the *active* stock during a live conversation.
+          The landing-state "all stocks" logo row is hidden: it was competing with
+          the suggested-question chip for "what is this product about" attention.
+          The rotating chip names each company in its sentence ("Bana Tempus AI'yi
+          anlat", "Why did you invest in Palantir?") so scope still reads cleanly. */}
+      {!sceneActive && activeStock && (
+        <StockBadge stock={activeStock} isConnected={isConnected} />
+      )}
 
       {/* Scene appears when active. Smooth crossfade between scenes and to/from idle. */}
       <AnimatePresence mode="wait">
@@ -109,7 +151,8 @@ export function VoiceScreen() {
 
       {/* Orb. orbInSceneMode lags behind sceneActive so the scene can fade out
           first, then the orb smoothly grows + slides to center without competing
-          animations. */}
+          animations. Suggested-question chip lives ABOVE the orb when idle, so
+          it reads like a soft headline that frames what the visitor can ask. */}
       <motion.div
         layout
         className={
@@ -119,6 +162,10 @@ export function VoiceScreen() {
         }
         transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
       >
+        <SuggestedQuestions
+          onSelect={handleSuggestedSelect}
+          hidden={orbInSceneMode || hasInteracted || isConnected}
+        />
         <VoiceOrb
           state={orbState}
           onClick={handleOrbClick}
