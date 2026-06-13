@@ -123,7 +123,7 @@ export function VoiceScreen() {
   const showHint = !isConnected && orbState !== "thinking";
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center relative overflow-hidden">
+    <div className="flex-1 flex flex-col items-center justify-center relative overflow-hidden pt-32 pb-8 max-md:pt-24 max-md:pb-6">
       {/* Stock badge only renders for the *active* stock during a live conversation.
           The landing-state "all stocks" logo row is hidden: it was competing with
           the suggested-question chip for "what is this product about" attention.
