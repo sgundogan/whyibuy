@@ -108,7 +108,7 @@ export function SuggestedQuestions({ onSelect, hidden }: Props) {
 
   return (
     <div
-      className="flex items-center justify-center min-h-[36px] mb-5 md:mb-7 px-4"
+      className="flex items-center justify-center min-h-[36px] -mb-2 md:-mb-1 px-4 relative z-20"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
