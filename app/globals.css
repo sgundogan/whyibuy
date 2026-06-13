@@ -4,14 +4,19 @@
   --font-sans: var(--font-sans);
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* Reset lives in @layer base so Tailwind's utilities layer can override it.
+   Without the layer, the unlayered `* { padding: 0 }` rule outranked every
+   padding utility in the project, so px-*/py-* silently did nothing. */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 
-body {
-  background: #0c0c0c;
-  color: #e8e0d8;
-  font-family: var(--font-sans), -apple-system, sans-serif;
+  body {
+    background: #0c0c0c;
+    color: #e8e0d8;
+    font-family: var(--font-sans), -apple-system, sans-serif;
+  }
 }
