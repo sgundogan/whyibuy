@@ -177,7 +177,7 @@ export function VoiceScreen() {
           {!orbInSceneMode && showHint && orbState !== "error" && (
             <motion.p
               key="hint"
-              className="mt-6 text-[12px] text-[#504838] tracking-[1px] text-center"
+              className="mt-7 text-[11px] text-[#8a7c68] tracking-[2.5px] uppercase font-light text-center"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
