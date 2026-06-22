@@ -1,24 +1,27 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import type { SceneData, DataPoint } from "@/hooks/useVoiceBrain";
+import type { SceneData, DataPoint, TargetRow } from "@/hooks/useVoiceBrain";
 
 interface DynamicChartProps {
   scene: SceneData;
 }
 
 export function DynamicChart({ scene }: DynamicChartProps) {
+  const data = scene.data ?? [];
   switch (scene.chart_type) {
     case "bar":
-      return <BarChart data={scene.data} annotation={scene.annotation} source={scene.source} />;
+      return <BarChart data={data} annotation={scene.annotation} source={scene.source} />;
     case "metric":
-      return <MetricCards data={scene.data} annotation={scene.annotation} source={scene.source} />;
+      return <MetricCards data={data} annotation={scene.annotation} source={scene.source} />;
     case "line":
-      return <LineChart data={scene.data} annotation={scene.annotation} source={scene.source} />;
+      return <LineChart data={data} annotation={scene.annotation} source={scene.source} />;
     case "donut":
-      return <DonutChart data={scene.data} annotation={scene.annotation} source={scene.source} />;
+      return <DonutChart data={data} annotation={scene.annotation} source={scene.source} />;
+    case "targets":
+      return <TargetTable targets={scene.targets ?? []} annotation={scene.annotation} source={scene.source} />;
     default:
-      return <BarChart data={scene.data} annotation={scene.annotation} source={scene.source} />;
+      return <BarChart data={data} annotation={scene.annotation} source={scene.source} />;
   }
 }
 
@@ -363,6 +366,125 @@ function DonutChart({ data, annotation, source }: { data: DataPoint[]; annotatio
       </div>
 
       <Footer annotation={annotation} source={source} prefersReduced={prefersReduced} annotationDelay={0.8} sourceDelay={1.0} />
+    </div>
+  );
+}
+
+// ─── Target Price Table ──────────────────────────────────────
+
+function TargetTable({
+  targets,
+  annotation,
+  source,
+}: {
+  targets: TargetRow[];
+  annotation?: string;
+  source?: string;
+}) {
+  const prefersReduced = useReducedMotion();
+  if (targets.length === 0) return null;
+
+  // Show only the RANGE of the displayed rows. We deliberately do NOT compute
+  // a "consensus" average here, because each table shows a representative
+  // subset of analysts (e.g. 5 of 19), so an average of the shown rows would
+  // misrepresent the true street consensus. The real documented mean/median
+  // belongs in the scene's annotation, authored from the vault.
+  const prices = targets.map((t) => t.price);
+  const low = Math.min(...prices);
+  const high = Math.max(...prices);
+  const hasRange = low !== high;
+
+  return (
+    <div className="flex flex-col gap-6 max-md:gap-4">
+      <div
+        className="flex flex-col rounded-xl overflow-hidden"
+        style={{ border: "1px solid rgba(200, 160, 60, 0.10)" }}
+      >
+        {/* Header row */}
+        <div
+          className="grid items-center px-5 py-2.5 text-[10px] tracking-[1px] uppercase max-md:px-4 max-md:py-2 max-md:text-[9px]"
+          style={{
+            gridTemplateColumns: "1fr auto auto",
+            gap: "16px",
+            color: "#807060",
+            background: "rgba(200, 160, 60, 0.05)",
+            borderBottom: "1px solid rgba(200, 160, 60, 0.08)",
+          }}
+        >
+          <span>Firm</span>
+          <span className="text-right w-20 max-md:w-16">Rating</span>
+          <span className="text-right w-16 max-md:w-14">Target</span>
+        </div>
+
+        {/* Body rows */}
+        {targets.map((t, i) => (
+          <motion.div
+            key={`${t.firm}-${i}`}
+            className="grid items-center px-5 py-3 text-[13px] max-md:px-4 max-md:py-2.5 max-md:text-[12px]"
+            style={{
+              gridTemplateColumns: "1fr auto auto",
+              gap: "16px",
+              borderBottom:
+                i < targets.length - 1 ? "1px solid rgba(200, 160, 60, 0.05)" : "none",
+              background: t.highlight ? "rgba(200, 160, 60, 0.04)" : "transparent",
+            }}
+            initial={prefersReduced ? {} : { opacity: 0, x: 6 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={prefersReduced ? { duration: 0 } : { delay: i * 0.08 + 0.2, duration: 0.4 }}
+          >
+            <div className="flex flex-col min-w-0">
+              <span className="truncate" style={{ color: "#c8b8a0" }}>
+                {t.firm}
+              </span>
+              {t.date && (
+                <span className="text-[10px] max-md:text-[9px]" style={{ color: "#585048" }}>
+                  {t.date}
+                </span>
+              )}
+            </div>
+            <span
+              className="text-right w-20 truncate text-[11px] max-md:w-16 max-md:text-[10px]"
+              style={{ color: "#807060" }}
+            >
+              {t.rating ?? "—"}
+            </span>
+            <span
+              className="text-right w-16 tabular-nums max-md:w-14"
+              style={{
+                color: t.highlight ? "#d4a84a" : "#c8a050",
+                fontWeight: t.highlight ? 600 : 500,
+              }}
+            >
+              ${formatNumber(t.price)}
+            </span>
+          </motion.div>
+        ))}
+
+        {/* Range footer row — shows the spread of the displayed targets. */}
+        {hasRange && (
+          <motion.div
+            className="grid items-center px-5 py-2.5 text-[12px] max-md:px-4 max-md:py-2 max-md:text-[11px]"
+            style={{
+              gridTemplateColumns: "1fr auto",
+              gap: "16px",
+              background: "rgba(200, 160, 60, 0.05)",
+              borderTop: "1px solid rgba(200, 160, 60, 0.08)",
+            }}
+            initial={prefersReduced ? {} : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={prefersReduced ? { duration: 0 } : { delay: targets.length * 0.08 + 0.3 }}
+          >
+            <span className="tracking-[0.5px]" style={{ color: "#807060" }}>
+              Range
+            </span>
+            <span className="tabular-nums" style={{ color: "#d4a84a", fontWeight: 600 }}>
+              ${formatNumber(low)} – ${formatNumber(high)}
+            </span>
+          </motion.div>
+        )}
+      </div>
+
+      <Footer annotation={annotation} source={source} prefersReduced={prefersReduced} annotationDelay={targets.length * 0.08 + 0.5} sourceDelay={targets.length * 0.08 + 0.7} />
     </div>
   );
 }

@@ -3,15 +3,24 @@
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { DynamicChart } from "./DynamicChart";
-import type { ActiveScene } from "@/hooks/useVoiceBrain";
+import type { ActiveScene, FollowupQuestion } from "@/hooks/useVoiceBrain";
 import { Component, type ReactNode, type ErrorInfo } from "react";
 
 interface SceneOrchestratorProps {
   activeScene: ActiveScene;
   isMobile?: boolean;
+  /**
+   * Kept on the type even though chips are now rendered by VoiceScreen — the
+   * prop's presence acts as a guard against accidentally re-introducing chip
+   * rendering here in the future.
+   */
+  onFollowupSelect?: (q: FollowupQuestion) => void;
 }
 
-export function SceneOrchestrator({ activeScene, isMobile = false }: SceneOrchestratorProps) {
+export function SceneOrchestrator({
+  activeScene,
+  isMobile = false,
+}: SceneOrchestratorProps) {
   const prefersReduced = useReducedMotion();
   const [hasError, setHasError] = useState(false);
 
@@ -44,7 +53,13 @@ export function SceneOrchestrator({ activeScene, isMobile = false }: SceneOrches
           animate={{ opacity: 1, y: 0, transition: enterTransition }}
           exit={{ opacity: 0, y: -4, transition: exitTransition }}
           className="w-full overflow-y-auto"
-          style={{ padding: isMobile ? "0 20px 16px" : "0 32px" }}
+          // Bottom padding clears the absolute-positioned chip bar and orb.
+          // Chips render in a separate fixed-position bar (see VoiceScreen),
+          // so the chart just needs to end above that bar. Numbers:
+          //   Desktop: orb at bottom-10 + 88px = 128px, chip bar above orb
+          //            takes ~60px → chart needs to end at ~210px from bottom.
+          //   Mobile : orb at bottom-20 + 88px = 168px, chip bar ~70px → ~240px
+          style={{ padding: isMobile ? "0 20px 240px" : "0 32px 210px" }}
         >
           <h2
             className="text-[15px] font-normal tracking-[0.5px] mb-8 max-md:text-[13px] max-md:mb-6"
@@ -55,6 +70,10 @@ export function SceneOrchestrator({ activeScene, isMobile = false }: SceneOrches
           <ErrorBoundary onError={() => setHasError(true)}>
             <DynamicChart scene={activeScene} />
           </ErrorBoundary>
+          {/* Follow-up chips are now rendered by VoiceScreen in their own
+              absolute-positioned bar above the orb, NOT inside this scrollable
+              scene container. That keeps them visually pinned above the orb
+              regardless of how tall the chart is. */}
         </motion.div>
       </AnimatePresence>
     </div>

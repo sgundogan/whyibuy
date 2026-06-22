@@ -1,7 +1,7 @@
 "use client";
 
 import { Sora, Playfair_Display } from "next/font/google";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 const sora = Sora({
   subsets: ["latin"],
@@ -17,6 +17,12 @@ const playfair = Playfair_Display({
 });
 
 interface WordmarkProps {
+  /**
+   * When true, the tagline "Talk to my investing thesis" renders below the
+   * wordmark. The parent (VoiceScreen) owns the value and flips it off the
+   * moment a scene mounts or a conversation connects, so the tagline only
+   * shows on the true landing state.
+   */
   showTagline?: boolean;
 }
 
@@ -40,16 +46,20 @@ export function Wordmark({ showTagline = false }: WordmarkProps) {
           Brain
         </span>
       </h1>
-      {showTagline && (
-        <motion.p
-          className="mt-3.5 text-[13px] text-[#8a7c68] tracking-[3px] uppercase font-light whitespace-nowrap max-md:text-[11px] max-md:tracking-[2px]"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.4, ease: "easeOut" }}
-        >
-          Talk to my investing thesis
-        </motion.p>
-      )}
+      <AnimatePresence>
+        {showTagline && (
+          <motion.p
+            key="tagline"
+            className={`${sora.className} mt-3.5 text-[14px] text-[#8a7c68] tracking-[0.2px] font-light whitespace-nowrap max-md:text-[12px]`}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+          >
+            Talk to my investing thesis
+          </motion.p>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

@@ -4,11 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { VoiceOrb } from "./VoiceOrb";
 import { StockBadge } from "./StockBadge";
+import { Wordmark } from "./Wordmark";
 import { SuggestedQuestions, type SuggestedQuestion } from "./SuggestedQuestions";
+import { FollowupChips } from "./FollowupChips";
 import { SceneOrchestrator } from "./scenes/SceneOrchestrator";
 import { useVoiceBrain } from "@/hooks/useVoiceBrain";
-import type { ActiveScene, SceneData } from "@/hooks/useVoiceBrain";
+import type { ActiveScene, FollowupQuestion, SceneData } from "@/hooks/useVoiceBrain";
 import { SCENE_REGISTRY } from "@/lib/scenes-data";
+import { useLang, detectLang, type Lang } from "@/lib/useLang";
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
@@ -50,16 +53,35 @@ export function VoiceScreen() {
     activeScene: liveScene,
     errorMessage,
     isConnected,
+    isSpeaking,
+    currentCaption,
     startConversation,
     endConversation,
     getAmplitude,
     sendUserMessage,
+    sendUserActivity,
   } = useVoiceBrain();
 
-  // Once the user interacts (taps orb or picks a suggested question), hide the
-  // suggestion chips for the rest of this session. They're training wheels —
-  // not permanent UI.
-  const [hasInteracted, setHasInteracted] = useState(false);
+  // activeLang tracks the language the conversation is actually happening in.
+  // Initialized from browser locale, but updated as the agent speaks: a
+  // Turkish reply switches everything to TR followups; an English reply
+  // switches to EN. No more mixed-language chip rows mid-conversation.
+  const browserLang = useLang();
+  const [activeLang, setActiveLang] = useState<Lang>(browserLang);
+  useEffect(() => {
+    setActiveLang(browserLang);
+  }, [browserLang]);
+  useEffect(() => {
+    if (!currentCaption || currentCaption.source !== "ai") return;
+    const detected = detectLang(currentCaption.text);
+    if (detected && detected !== activeLang) {
+      setActiveLang(detected);
+    }
+  }, [currentCaption, activeLang]);
+
+  const handleFollowupSelect = (q: FollowupQuestion) => {
+    if (isConnected) sendUserMessage(q.text);
+  };
 
   // Queue a chip-selected question and flush once the conversation is
   // connected. The SDK queues internally too, but tracking it explicitly here
@@ -67,46 +89,92 @@ export function VoiceScreen() {
   // the WebRTC handshake.
   const queuedQuestionRef = useRef<string | null>(null);
 
+  // landingSessionKey is bumped every time a conversation ends. We pass it
+  // as the React `key` on <SuggestedQuestions />, which forces the component
+  // to remount fresh — new shuffled order, new random starting index — so
+  // the user never sees the same chip they just clicked staring back at them.
+  const [landingSessionKey, setLandingSessionKey] = useState(0);
+  const wasConnectedRef = useRef(false);
+  useEffect(() => {
+    if (wasConnectedRef.current && !isConnected) {
+      setLandingSessionKey((k) => k + 1);
+    }
+    wasConnectedRef.current = isConnected;
+  }, [isConnected]);
+
+
+  // Stash the SDK methods in refs so the flush effect only re-runs when
+  // isConnected actually changes — not on every re-render (which is what was
+  // causing the [VoiceScreen] isConnected -> true / no queued question log
+  // spam in the console).
+  const sendUserActivityRef = useRef(sendUserActivity);
+  const sendUserMessageRef = useRef(sendUserMessage);
+  useEffect(() => {
+    sendUserActivityRef.current = sendUserActivity;
+    sendUserMessageRef.current = sendUserMessage;
+  }, [sendUserActivity, sendUserMessage]);
+
   useEffect(() => {
     if (!isConnected) return;
     const q = queuedQuestionRef.current;
     if (!q) return;
-    queuedQuestionRef.current = null;
-    sendUserMessage(q);
-  }, [isConnected, sendUserMessage]);
+    // Wake the agent with user_activity FIRST so it leaves the "waiting for
+    // audio" state, then send the text via user_message. Without the wake
+    // signal, the agent silently drops text input in voice mode.
+    //
+    // Aggressive timings — tested as the minimum that still works reliably:
+    //   t=0    onConnect fires
+    //   t=80   send user_activity (data channel is ready by this point)
+    //   t=200  send user_message (120ms after wake)
+    //
+    // Total pre-send latency from connect: 200ms (was 600ms).
+    const wakeTimer = setTimeout(() => {
+      sendUserActivityRef.current();
+    }, 80);
+    const sendTimer = setTimeout(() => {
+      if (!queuedQuestionRef.current) return;
+      const text = queuedQuestionRef.current;
+      queuedQuestionRef.current = null;
+      sendUserMessageRef.current(text);
+    }, 200);
+    return () => {
+      clearTimeout(wakeTimer);
+      clearTimeout(sendTimer);
+    };
+  }, [isConnected]);
 
   const handleSuggestedSelect = async (q: SuggestedQuestion) => {
-    setHasInteracted(true);
     if (isConnected) {
       sendUserMessage(q.text);
       return;
     }
+    // Guard against double-clicks while an earlier start is still in flight.
+    // orbState === "thinking" means startConversation hasn't returned yet, so
+    // we just update the queued message and let the in-flight call finish.
+    if (orbState === "thinking") {
+      queuedQuestionRef.current = q.text;
+      return;
+    }
     // Not connected yet — queue the message and kick off the session. The
-    // useEffect above flushes once isConnected flips true.
+    // useEffect above flushes the queued message once isConnected flips true.
+    //
+    // skipGreeting is gated on NEXT_PUBLIC_SKIP_GREETING because suppressing
+    // the agent's first_message requires "Override first message" to be
+    // enabled in the ElevenLabs agent's Security settings. Without that
+    // toggle, the SDK throws NotSupportedError and the click silently fails.
+    // Enable the env var only after flipping the dashboard setting on.
+    const skipGreeting =
+      process.env.NEXT_PUBLIC_SKIP_GREETING === "true";
     queuedQuestionRef.current = q.text;
     setHasEnded(false);
-    await startConversation();
+    await startConversation({ skipGreeting });
   };
 
   const activeScene = devScene ?? liveScene;
   const sceneActive = activeScene !== null;
 
-  // The orb's layout state lags behind sceneActive on the way out, so the scene
-  // can finish its fade-out before the orb starts moving / resizing. On the way
-  // in (scene appearing) we flip immediately so the orb shrinks alongside the
-  // chart's entrance.
-  const [orbInSceneMode, setOrbInSceneMode] = useState(sceneActive);
-  useEffect(() => {
-    if (sceneActive) {
-      setOrbInSceneMode(true);
-      return;
-    }
-    const t = setTimeout(() => setOrbInSceneMode(false), SCENE_EXIT_MS);
-    return () => clearTimeout(t);
-  }, [sceneActive]);
 
   const handleOrbClick = async () => {
-    setHasInteracted(true);
     if (isConnected) {
       await endConversation();
       setHasEnded(true);
@@ -116,91 +184,145 @@ export function VoiceScreen() {
     }
   };
 
+
   // Scene now persists during conversation until the AI calls show_scene with a
   // different topic (or the conversation ends). The orb sits below the chart so
   // the user can still tap it — there's no need to auto-dismiss on user speech.
 
   const showHint = !isConnected && orbState !== "thinking";
 
+  // Tagline shows only on the true landing state — no scene, no active call.
+  // The moment a chart mounts or the conversation connects, it fades out so
+  // the screen reads as "in conversation" instead of "on landing".
+  const showTagline = !sceneActive && !isConnected;
+
+  // Two completely different layouts so scene mode and landing mode never
+  // share positioning logic:
+  // - Landing: a centered flex column (wordmark above orb naturally).
+  // - Scene: THREE hard zones that physically cannot overlap —
+  //     1. Wordmark, fixed at the top (its own component handles position)
+  //     2. A bounded, scrollable content window (chart + chips together) that
+  //        lives strictly BETWEEN the wordmark and the orb. If the chart is
+  //        tall, the window scrolls internally; it never bleeds into either.
+  //     3. Orb, absolutely pinned at the bottom.
+  //   Because the content window has explicit top/bottom insets, overlap is
+  //   mathematically impossible regardless of chart height or viewport size.
+
   return (
-    <div className="flex-1 flex flex-col items-center justify-center relative overflow-hidden pt-32 pb-8 max-md:pt-24 max-md:pb-6">
-      {/* Stock badge only renders for the *active* stock during a live conversation.
-          The landing-state "all stocks" logo row is hidden: it was competing with
-          the suggested-question chip for "what is this product about" attention.
-          The rotating chip names each company in its sentence ("Bana Tempus AI'yi
-          anlat", "Why did you invest in Palantir?") so scope still reads cleanly. */}
-      {!sceneActive && activeStock && (
-        <StockBadge stock={activeStock} isConnected={isConnected} />
-      )}
+    <div className="flex-1 relative overflow-hidden">
+      <Wordmark showTagline={showTagline} />
 
-      {/* Scene appears when active. Smooth crossfade between scenes and to/from idle. */}
-      <AnimatePresence mode="wait">
-        {sceneActive && (
-          <motion.div
-            key="scene"
-            className="w-full flex justify-center"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: SCENE_EXIT_MS / 1000, ease: [0.25, 0.1, 0.25, 1] }}
+      {sceneActive ? (
+        /* ─── SCENE MODE ─── four stacked zones that cannot overlap ─── */
+        <>
+          {/* ZONE 2: Chart window. Bounded between the wordmark (top) and the
+              CHIP BAR (bottom). A tall chart scrolls INSIDE this window; it
+              never reaches the chips or the orb. Desktop reserves 248px at the
+              bottom for chips(≈60px)+orb(≈120px)+gaps; mobile reserves 230px. */}
+          <div
+            className="
+              absolute inset-x-0 z-20 overflow-y-auto
+              flex flex-col items-center justify-start
+              top-[140px] bottom-[230px]
+              max-md:top-[116px] max-md:bottom-[215px]
+              px-8 max-md:px-5
+            "
           >
-            <SceneOrchestrator activeScene={activeScene} isMobile={isMobile} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeScene?.title}
+                className="w-full max-w-[640px] flex flex-col items-center"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: SCENE_EXIT_MS / 1000, ease: [0.25, 0.1, 0.25, 1] }}
+              >
+                <SceneOrchestrator activeScene={activeScene} isMobile={isMobile} />
+              </motion.div>
+            </AnimatePresence>
+          </div>
 
-      {/* Orb. orbInSceneMode lags behind sceneActive so the scene can fade out
-          first, then the orb smoothly grows + slides to center without competing
-          animations. Suggested-question chip lives ABOVE the orb when idle, so
-          it reads like a soft headline that frames what the visitor can ask. */}
-      <motion.div
-        layout
-        className={
-          orbInSceneMode
-            ? "absolute bottom-24 left-1/2 -translate-x-1/2 max-md:bottom-20"
-            : "flex flex-col items-center"
-        }
-        transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
-      >
-        <SuggestedQuestions
-          onSelect={handleSuggestedSelect}
-          hidden={orbInSceneMode || hasInteracted || isConnected}
-        />
-        <VoiceOrb
-          state={orbState}
-          onClick={handleOrbClick}
-          getAmplitude={isConnected ? getAmplitude : undefined}
-          isConnected={isConnected}
-          miniMode={orbInSceneMode}
-        />
-        <AnimatePresence>
-          {!orbInSceneMode && showHint && orbState !== "error" && (
-            <motion.p
-              key="hint"
-              className="mt-7 text-[11px] text-[#8a7c68] tracking-[2.5px] uppercase font-light text-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3, delay: 0.25 }}
-            >
-              {hasEnded ? (
-                <>
-                  <span className="text-[#706860]">conversation ended.</span>
-                  <br />
-                  tap to talk
-                </>
-              ) : (
-                "tap to talk"
-              )}
-            </motion.p>
+          {/* ZONE 3: Chip bar. Fixed position so it's ALWAYS visible regardless
+              of chart height. The inner box matches the chart's width/padding
+              and left-aligns the chips, so they line up under the chart's left
+              edge instead of floating centered (which made short chip rows like
+              the target tables look mis-centered vs the wider metric rows). */}
+          {activeScene?.followups && (
+            <div className="absolute inset-x-0 z-30 flex justify-center bottom-[150px] max-md:bottom-[130px]">
+              <div className="w-full max-w-[640px] px-8 max-md:px-5 flex justify-start">
+                <FollowupChips
+                  followups={activeScene.followups}
+                  activeLang={activeLang}
+                  onSelect={handleFollowupSelect}
+                />
+              </div>
+            </div>
           )}
-        </AnimatePresence>
-      </motion.div>
 
-      {errorMessage && !isConnected && (
-        <p className="mt-6 text-[12px] text-[#665040] text-center max-w-[260px]">
-          {errorMessage}
-        </p>
+          {/* ZONE 4: Orb, pinned at the very bottom. */}
+          <motion.div
+            layout
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40 max-md:bottom-10"
+            transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
+          >
+            <VoiceOrb
+              state={orbState}
+              onClick={handleOrbClick}
+              getAmplitude={isConnected ? getAmplitude : undefined}
+              isConnected={isConnected}
+              miniMode={true}
+            />
+          </motion.div>
+        </>
+      ) : (
+        /* ─── LANDING MODE ─── */
+        /* top-[170px] reserves space for the fixed wordmark + tagline so the
+           centered content block (chip + the full-size 420px orb + hint) can
+           never reach up into the tagline on short desktop viewports. */
+        <div className="absolute inset-x-0 top-[170px] bottom-0 flex flex-col items-center justify-center px-4 max-md:top-[150px]">
+          {activeStock && <StockBadge stock={activeStock} isConnected={isConnected} />}
+          <div className="flex flex-col items-center">
+        <SuggestedQuestions
+              key={landingSessionKey}
+              onSelect={handleSuggestedSelect}
+              hidden={isConnected}
+            />
+            <VoiceOrb
+              state={orbState}
+              onClick={handleOrbClick}
+              getAmplitude={isConnected ? getAmplitude : undefined}
+              isConnected={isConnected}
+              miniMode={false}
+            />
+            <AnimatePresence>
+              {showHint && orbState !== "error" && (
+                <motion.p
+                  key="hint"
+                  className="mt-7 text-[12px] text-[#8a7c68] tracking-[0.2px] font-light text-center"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3, delay: 0.25 }}
+                >
+                  {hasEnded ? (
+                    <>
+                      <span className="text-[#706860]">conversation ended.</span>
+                      <br />
+                      tap to talk
+                    </>
+                  ) : (
+                    "tap to talk"
+                  )}
+                </motion.p>
+              )}
+            </AnimatePresence>
+            {errorMessage && !isConnected && (
+              <p className="mt-6 text-[12px] text-[#665040] text-center max-w-[260px]">
+                {errorMessage}
+              </p>
+            )}
+          </div>
+        </div>
       )}
 
       {/* DEV: Chart test buttons — only visible in development */}

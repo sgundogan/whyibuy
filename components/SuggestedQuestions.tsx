@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
+import stocks, { type Stock } from "@/lib/stocks";
+import { useLang } from "@/lib/useLang";
 
 /**
  * Rotating bilingual question chips above the orb.
@@ -26,24 +29,54 @@ import { motion, AnimatePresence } from "framer-motion";
 export interface SuggestedQuestion {
   text: string;
   lang: "tr" | "en";
+  /**
+   * Optional portfolio-stock anchor. When set, the chip renders that company's
+   * monochrome logo to the left of the question text — recognition beats
+   * reading at a glance, and creates visual continuity with the StockBadge
+   * that appears when the agent starts talking about the same company.
+   *
+   * Qualitative questions ("when do you sell?", "portfolio allocation") leave
+   * this undefined so the rotation has a natural mix of with-logo and
+   * text-only chips. This keeps the chip from feeling like a uniform menu
+   * of company buttons.
+   */
+  ticker?: "PLTR" | "HOOD" | "TEM" | "NBIS" | "AUR";
 }
 
-// 6 TR + 4 EN. Each question is designed to trigger a scene (wow moment) on
-// the first interaction. Keep total ≤ 12 — beyond that, rotation feels random
-// instead of curated.
-const QUESTIONS: SuggestedQuestion[] = [
-  // Turkish
-  { text: "Bana Tempus AI'yi anlat", lang: "tr" },
-  { text: "Palantir'e neden yatırım yaptın?", lang: "tr" },
-  { text: "Robinhood Gold üyelikleri kaça ulaştı?", lang: "tr" },
-  { text: "Portföyünü göster", lang: "tr" },
-  { text: "Aurora'nın rekabet avantajı ne?", lang: "tr" },
-  { text: "Ne zaman satarsın?", lang: "tr" },
-  // English
-  { text: "Show me Nebius revenue", lang: "en" },
-  { text: "Why did you invest in Palantir?", lang: "en" },
-  { text: "How does Robinhood make money?", lang: "en" },
-  { text: "What's your portfolio allocation?", lang: "en" },
+// Each pool is ordered by REAL user demand from the conversation flywheel
+// (wiki/flywheel/*.md). The chip rotation surfaces the questions users
+// actually ask, plus seeds of new feature demand (target prices, cost basis).
+// "Ne zaman satarsın?" / "When do you sell?" got cut — zero hits in 4 weeks
+// of flywheel data — and replaced with cost-basis and target-price chips
+// that map to real organic queries the agent kept refusing.
+const QUESTIONS_TR: SuggestedQuestion[] = [
+  // Top demand (7 hits in week 14)
+  { text: "Palantir'e neden yatırım yaptın?", lang: "tr", ticker: "PLTR" },
+  // Tied for #2 (4 hits each)
+  { text: "Robinhood Gold üyelikleri kaça ulaştı?", lang: "tr", ticker: "HOOD" },
+  { text: "Bana Tempus AI'yi anlat.", lang: "tr", ticker: "TEM" },
+  // #4 (3 hits)
+  { text: "Aurora'nın rekabet avantajı nedir?", lang: "tr", ticker: "AUR" },
+  // #5 (2 hits) — also seeds the NBIS scene
+  { text: "Nebius'un büyüme hikayesi nedir?", lang: "tr", ticker: "NBIS" },
+  // Portfolio overview — common organic ask ("Portföyde neler var?")
+  { text: "Portföy dağılımını göster.", lang: "tr" },
+  // NEW: surfaces the cost-basis demand pattern from week 21
+  // ("Maliyetler ne?", "Tempus'u kaçtan aldı?")
+  { text: "Hisseleri kaçtan aldın?", lang: "tr" },
+  // NEW: drives discovery of the target-price tables we just shipped
+  { text: "Palantir'in hedef fiyatı nedir?", lang: "tr", ticker: "PLTR" },
+];
+
+const QUESTIONS_EN: SuggestedQuestion[] = [
+  { text: "Why did you invest in Palantir?", lang: "en", ticker: "PLTR" },
+  { text: "How many Robinhood Gold subscribers?", lang: "en", ticker: "HOOD" },
+  { text: "Tell me about Tempus AI", lang: "en", ticker: "TEM" },
+  { text: "What's Aurora's competitive edge?", lang: "en", ticker: "AUR" },
+  { text: "Show me Nebius revenue", lang: "en", ticker: "NBIS" },
+  { text: "Show me your portfolio", lang: "en" },
+  { text: "What's your cost basis on each stock?", lang: "en" },
+  { text: "What's Palantir's analyst price target?", lang: "en", ticker: "PLTR" },
 ];
 
 const ROTATION_MS = 5000;
@@ -55,39 +88,42 @@ interface Props {
 }
 
 /**
- * Shuffle and ensure no two consecutive items share the same language so the
- * Turkish/English mix feels random rather than batched. Deterministic per
- * mount (no SSR hydration mismatch — runs in useMemo on client only).
+ * Fisher-Yates shuffle of the language-matched pool. Runs once per mount, so
+ * the rotation order is fresh after each session reset.
  */
-function buildRotation(): SuggestedQuestion[] {
-  const pool = [...QUESTIONS];
-  // Fisher-Yates
-  for (let i = pool.length - 1; i > 0; i--) {
+function buildRotation(pool: SuggestedQuestion[]): SuggestedQuestion[] {
+  const out = [...pool];
+  for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
+    [out[i], out[j]] = [out[j], out[i]];
   }
-  // Best-effort de-clustering: if two in a row share language, swap forward.
-  for (let i = 1; i < pool.length; i++) {
-    if (pool[i].lang === pool[i - 1].lang) {
-      for (let k = i + 1; k < pool.length; k++) {
-        if (pool[k].lang !== pool[i - 1].lang) {
-          [pool[i], pool[k]] = [pool[k], pool[i]];
-          break;
-        }
-      }
-    }
-  }
-  return pool;
+  return out;
 }
 
 export function SuggestedQuestions({ onSelect, hidden }: Props) {
-  const rotation = useMemo(() => buildRotation(), []);
+  const lang = useLang();
+  // IMPORTANT: rotation and the starting index must be DETERMINISTIC on the
+  // first render so server-rendered HTML matches the client (no hydration
+  // mismatch). We start with the un-shuffled pool at index 0, then shuffle +
+  // pick a random start in a mount effect (client-only). The parent forces a
+  // fresh mount via `key` after each conversation, which re-runs this.
+  const [rotation, setRotation] = useState<SuggestedQuestion[]>(() =>
+    lang === "tr" ? QUESTIONS_TR : QUESTIONS_EN,
+  );
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
 
+  // Re-shuffle whenever the language changes (or on first client mount). Runs
+  // only on the client, so the random shuffle never causes a hydration diff.
+  useEffect(() => {
+    const pool = lang === "tr" ? QUESTIONS_TR : QUESTIONS_EN;
+    setRotation(buildRotation(pool));
+    setIndex(Math.floor(Math.random() * pool.length));
+  }, [lang]);
+
   // Mirror paused into a ref so the interval callback can read the latest
-  // value without re-creating the interval (which would reset the 7s clock
+  // value without re-creating the interval (which would reset the 5s clock
   // every time the user mouses in or out).
   useEffect(() => {
     pausedRef.current = paused;
@@ -105,6 +141,7 @@ export function SuggestedQuestions({ onSelect, hidden }: Props) {
   if (hidden) return null;
 
   const current = rotation[index];
+  const stock: Stock | undefined = current.ticker ? stocks[current.ticker] : undefined;
 
   return (
     <div
@@ -155,7 +192,24 @@ export function SuggestedQuestions({ onSelect, hidden }: Props) {
           whileTap={{ scale: 0.97 }}
           aria-label={`Ask: ${current.text}`}
         >
-          {current.text}
+          <span className="inline-flex items-center justify-center gap-2.5 md:gap-3">
+            {stock && (
+              <span
+                className="inline-flex items-center justify-center w-[18px] h-[18px] md:w-[20px] md:h-[20px] shrink-0"
+                aria-hidden
+              >
+                <Image
+                  src={stock.logo}
+                  alt=""
+                  width={18}
+                  height={18}
+                  className="brightness-0 invert opacity-50"
+                  style={{ width: "auto", height: "auto", maxWidth: 18, maxHeight: 18 }}
+                />
+              </span>
+            )}
+            <span>{current.text}</span>
+          </span>
         </motion.button>
       </AnimatePresence>
     </div>

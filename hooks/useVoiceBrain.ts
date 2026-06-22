@@ -112,7 +112,7 @@ function resumeAllTrackedContexts() {
 
 export type OrbState = "listening" | "thinking" | "speaking" | "error";
 
-export type ChartType = "bar" | "line" | "metric" | "donut";
+export type ChartType = "bar" | "line" | "metric" | "donut" | "targets";
 
 export interface DataPoint {
   label: string;
@@ -137,12 +137,51 @@ export interface DataPoint {
   highlight?: boolean;
 }
 
+export interface FollowupQuestion {
+  text: string;
+  lang: "tr" | "en";
+}
+
+/**
+ * One analyst price-target row, rendered by the "targets" scene type.
+ * These are ANALYST views (banks / research firms), never Serkan's own target.
+ * The agent cites them with attribution, then redirects to the thesis.
+ */
+export interface TargetRow {
+  /** Issuing firm, e.g. "Morgan Stanley", "Goldman Sachs", "Wedbush". */
+  firm: string;
+  /** Target price in USD. */
+  price: number;
+  /** Optional rating: "Overweight", "Buy", "Hold", etc. */
+  rating?: string;
+  /** Optional date the target was issued, e.g. "May 2026". */
+  date?: string;
+  /** Highlight the street-high or most notable target. */
+  highlight?: boolean;
+}
+
 export interface SceneData {
   chart_type: ChartType;
   title: string;
-  data: DataPoint[];
+  /**
+   * Numeric data points for bar/line/metric/donut charts. Optional because the
+   * "targets" scene type uses `targets` instead.
+   */
+  data?: DataPoint[];
+  /**
+   * Analyst price-target rows for the "targets" scene type. The TargetTable
+   * component computes the consensus + range from these rows automatically.
+   */
+  targets?: TargetRow[];
   annotation?: string;
   source?: string;
+  /**
+   * Optional follow-up question chips shown below the chart, above the mini-orb.
+   * Fade in ~1.5s after the agent stops speaking; hide instantly if the user
+   * starts speaking. Clicking sends the text as a user_message (same flow as
+   * landing chips). Keep 2-3 per scene — more crowds the chart.
+   */
+  followups?: FollowupQuestion[];
 }
 
 export type ActiveScene = SceneData | null;
@@ -177,6 +216,12 @@ export function useVoiceBrain() {
   const captionTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const sceneDismissRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const isConnectedRef = useRef(false);
+  // Promise that resolves once the previous session has fully torn down at
+  // the SDK level. Held while endSession() is in flight so a quick "tap
+  // chip after ending" can wait for the WebRTC/LiveKit room to close before
+  // opening a new one. Without this gate, the new session inherits stale
+  // state from the old one and the agent's first_message can replay.
+  const endingRef = useRef<Promise<unknown> | null>(null);
 
   const conversation = useConversation({
     clientTools: {
@@ -246,7 +291,7 @@ export function useVoiceBrain() {
       setCurrentCaption(null);
     },
     onError: (message: string) => {
-      console.error("ElevenLabs error:", message);
+      console.error("[ElevenLabs] error:", message);
       setOrbState("error");
       setErrorMessage(message);
     },
@@ -278,57 +323,106 @@ export function useVoiceBrain() {
     }
   }
 
-  const startConversation = useCallback(async () => {
-    setErrorMessage(null);
-    setOrbState("thinking");
+  const startConversation = useCallback(
+    async (options?: { skipGreeting?: boolean }) => {
+      setErrorMessage(null);
+      setOrbState("thinking");
 
-    // Unlock iOS audio session DURING the tap gesture (before any await)
-    unlockAudioSession();
+      // Unlock iOS audio session DURING the tap gesture (before any await)
+      unlockAudioSession();
 
-    try {
-      const res = await fetch("/api/conversation", { method: "POST" });
-
-      if (res.status === 503) {
-        setOrbState("error");
-        setErrorMessage("Investing Brain is busy. Try again shortly.");
-        return;
+      // If the previous session is still tearing down, wait for it. Without
+      // this gate the new session can pick up stale audio buffers from the
+      // old one — symptom: agent says "Mer…" (the previous first_message)
+      // before answering the user's new question. Cap the wait at 1.2s so
+      // a stuck teardown doesn't block forever.
+      if (endingRef.current) {
+        await Promise.race([
+          endingRef.current,
+          new Promise((r) => setTimeout(r, 1200)),
+        ]);
       }
 
-      if (res.status === 429) {
+      try {
+        const res = await fetch("/api/conversation", { method: "POST" });
+
+        if (res.status === 503) {
+          setOrbState("error");
+          setErrorMessage("Investing Brain is busy. Try again shortly.");
+          return;
+        }
+
+        if (res.status === 429) {
+          setOrbState("error");
+          setErrorMessage("Too many requests. Please wait a moment.");
+          return;
+        }
+
+        if (!res.ok) {
+          setOrbState("error");
+          setErrorMessage("Failed to connect. Please try again.");
+          return;
+        }
+
+        const data = await res.json();
+        setSessionId(data.sessionId ?? null);
+
+        // skipGreeting is honored ONLY when the ElevenLabs agent has
+        // "Override first message" enabled in its Security settings. Without
+        // that toggle, the SDK throws NotSupportedError, and once it fails
+        // the SDK won't accept a retry in the same tick. So we treat the
+        // option as a permission the agent has either granted or not — there
+        // is no fallback path that works reliably.
+        const sessionConfig: Parameters<typeof conversation.startSession>[0] = {
+          agentId: data.agentId,
+          connectionType: "webrtc" as any,
+          ...(options?.skipGreeting
+            ? { overrides: { agent: { firstMessage: "" } } }
+            : {}),
+        };
+
+        // Use WebRTC mode — it uses <audio> HTML elements instead of
+        // AudioContext + AudioWorklets. iOS Safari handles <audio autoplay>
+        // much better after a user gesture, so the greeting plays reliably.
+        // WebRTC requires agentId (not signedUrl) to fetch a conversation token.
+        await conversation.startSession(sessionConfig);
+      } catch (err) {
+        console.error("[VoiceBrain] startConversation failed:", err);
         setOrbState("error");
-        setErrorMessage("Too many requests. Please wait a moment.");
-        return;
+        setErrorMessage("Connection failed. Please try again.");
       }
-
-      if (!res.ok) {
-        setOrbState("error");
-        setErrorMessage("Failed to connect. Please try again.");
-        return;
-      }
-
-      const data = await res.json();
-      setSessionId(data.sessionId ?? null);
-
-      // Use WebRTC mode — it uses <audio> HTML elements instead of
-      // AudioContext + AudioWorklets. iOS Safari handles <audio autoplay>
-      // much better after a user gesture, so the greeting plays reliably.
-      // WebRTC requires agentId (not signedUrl) to fetch a conversation token.
-      await conversation.startSession({
-        agentId: data.agentId,
-        connectionType: "webrtc" as any,
-      });
-    } catch (err) {
-      console.error("Failed to start:", err);
-      setOrbState("error");
-      setErrorMessage("Connection failed. Please try again.");
-    }
-  }, [conversation]);
+    },
+    [conversation],
+  );
 
   const endConversation = useCallback(async () => {
-    await conversation.endSession();
+    // OPTIMISTIC UI RESET — snap the user back to home immediately. The SDK
+    // teardown takes ~500-1000ms (WebRTC close + LiveKit room leave). If we
+    // await it first the user stares at the scene while the orb does nothing.
+    // Instead: clear UI state synchronously, fire the SDK cleanup in the
+    // background, and trust onDisconnect to flip isConnected when ready.
     setActiveStock(null);
     setActiveScene(null);
+    setOrbState("listening");
+    setErrorMessage(null);
+    setCurrentCaption(null);
     clearTimeout(sceneDismissRef.current);
+    clearTimeout(captionTimeoutRef.current);
+    isConnectedRef.current = false;
+
+    // Track the teardown so startConversation can wait if the user immediately
+    // tries to start a new session. Without this gate, the new startSession
+    // fires while the old WebRTC/LiveKit room is still leaving, which lets
+    // the old session's first_message audio buffer ("Merhaba…") bleed into
+    // the new connection before the queued user_message overrides it.
+    endingRef.current = conversation
+      .endSession()
+      .catch((err) => {
+        console.warn("[VoiceBrain] endSession error (already cleaned up):", err);
+      })
+      .finally(() => {
+        endingRef.current = null;
+      });
 
     if (sessionId) {
       fetch("/api/conversation", {
@@ -361,6 +455,24 @@ export function useVoiceBrain() {
     [conversation],
   );
 
+  /**
+   * Signal that the user is actively interacting. Required in voice-mode
+   * conversations to wake the agent before it accepts text input — without
+   * this, the agent stays in "waiting for audio" state and silently drops
+   * user_message text events.
+   */
+  const sendUserActivity = useCallback(() => {
+    // The SDK method may exist depending on version; cast through unknown to
+    // avoid hard-coupling to a specific @11labs/react version.
+    const fn = (conversation as unknown as { sendUserActivity?: () => void })
+      .sendUserActivity;
+    if (typeof fn === "function") {
+      fn.call(conversation);
+    } else {
+      console.warn("[VoiceBrain] sendUserActivity not available on SDK");
+    }
+  }, [conversation]);
+
   return {
     orbState,
     activeStock,
@@ -374,5 +486,6 @@ export function useVoiceBrain() {
     dismissScene,
     getAmplitude,
     sendUserMessage,
+    sendUserActivity,
   };
 }
