@@ -52,14 +52,14 @@ export function SceneOrchestrator({
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0, transition: enterTransition }}
           exit={{ opacity: 0, y: -4, transition: exitTransition }}
-          className="w-full overflow-y-auto"
-          // Bottom padding clears the absolute-positioned chip bar and orb.
-          // Chips render in a separate fixed-position bar (see VoiceScreen),
-          // so the chart just needs to end above that bar. Numbers:
-          //   Desktop: orb at bottom-10 + 88px = 128px, chip bar above orb
-          //            takes ~60px → chart needs to end at ~210px from bottom.
-          //   Mobile : orb at bottom-20 + 88px = 168px, chip bar ~70px → ~240px
-          style={{ padding: isMobile ? "0 20px 240px" : "0 32px 210px" }}
+          className="w-full"
+          // Horizontal padding only. The big bottom padding that used to live
+          // here (240/210px) was sized to clear a SEPARATE fixed chip bar that
+          // no longer exists — chips now render directly under this chart as
+          // one unit (see VoiceScreen Zone 2+3), and the parent container owns
+          // scrolling + orb clearance. Keeping the old bottom padding created a
+          // dead gap between the chart and its questions.
+          style={{ padding: isMobile ? "0 20px" : "0 32px" }}
         >
           <h2
             className="text-[15px] font-normal tracking-[0.5px] mb-8 max-md:text-[13px] max-md:mb-6"

@@ -215,49 +215,51 @@ export function VoiceScreen() {
       {sceneActive ? (
         /* ─── SCENE MODE ─── four stacked zones that cannot overlap ─── */
         <>
-          {/* ZONE 2: Chart window. Bounded between the wordmark (top) and the
-              CHIP BAR (bottom). A tall chart scrolls INSIDE this window; it
-              never reaches the chips or the orb. Desktop reserves 248px at the
-              bottom for chips(≈60px)+orb(≈120px)+gaps; mobile reserves 230px. */}
+          {/* ZONE 2+3: Chart + its follow-up questions as ONE tight group,
+              vertically centered in the viewport. They used to be separate
+              absolutely-positioned zones (chart pinned high, chip bar pinned
+              low), leaving a dead band of negative space between related
+              elements. Now the chips render directly beneath the chart in the
+              same column, and `my-auto` centers the whole group between the
+              locked brand header (top) and the orb (bottom) — metrics and
+              query prompts visible together on one screen, no scroll.
+
+              `my-auto` is the scroll-safe way to center: when a scene is tall
+              enough to overflow (e.g. the full analyst-target table), the auto
+              margins collapse to 0 and the container scrolls from the top,
+              carrying the chips with it — nothing clipped, nothing orphaned.
+              Universal across all scenes since every scene flows through here. */}
           <div
             className="
               absolute inset-x-0 z-20 overflow-y-auto
               flex flex-col items-center justify-start
-              top-[140px] bottom-[230px]
-              max-md:top-[116px] max-md:bottom-[215px]
+              top-[120px] bottom-[140px]
+              max-md:top-[110px] max-md:bottom-[140px]
               px-8 max-md:px-5
             "
           >
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeScene?.title}
-                className="w-full max-w-[640px] flex flex-col items-center"
+                className="w-full max-w-[640px] flex flex-col items-center my-auto"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: SCENE_EXIT_MS / 1000, ease: [0.25, 0.1, 0.25, 1] }}
               >
                 <SceneOrchestrator activeScene={activeScene} isMobile={isMobile} />
+                {activeScene?.followups && (
+                  <div className="w-full mt-5 max-md:mt-4 flex justify-start">
+                    <FollowupChips
+                      followups={activeScene.followups}
+                      activeLang={activeLang}
+                      onSelect={handleFollowupSelect}
+                    />
+                  </div>
+                )}
               </motion.div>
             </AnimatePresence>
           </div>
-
-          {/* ZONE 3: Chip bar. Fixed position so it's ALWAYS visible regardless
-              of chart height. The inner box matches the chart's width/padding
-              and left-aligns the chips, so they line up under the chart's left
-              edge instead of floating centered (which made short chip rows like
-              the target tables look mis-centered vs the wider metric rows). */}
-          {activeScene?.followups && (
-            <div className="absolute inset-x-0 z-30 flex justify-center bottom-[150px] max-md:bottom-[130px]">
-              <div className="w-full max-w-[640px] px-8 max-md:px-5 flex justify-start">
-                <FollowupChips
-                  followups={activeScene.followups}
-                  activeLang={activeLang}
-                  onSelect={handleFollowupSelect}
-                />
-              </div>
-            </div>
-          )}
 
           {/* ZONE 4: Orb, pinned at the very bottom. */}
           <motion.div
