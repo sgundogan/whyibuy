@@ -40,7 +40,7 @@ export function VoiceOrb({ state, onClick, getAmplitude, isConnected = false, mi
       className={
         miniMode
           ? "relative z-30 w-[88px] h-[88px] flex items-center justify-center cursor-pointer max-md:w-[88px] max-md:h-[88px]"
-          : "relative w-[420px] h-[420px] flex items-center justify-center cursor-pointer max-md:w-[300px] max-md:h-[300px]"
+          : "relative w-[300px] h-[300px] flex items-center justify-center cursor-pointer"
       }
       transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
       onClick={onClick}
@@ -65,7 +65,7 @@ export function VoiceOrb({ state, onClick, getAmplitude, isConnected = false, mi
             className={
               miniMode
                 ? "absolute w-[76px] h-[76px] rounded-full max-md:w-[76px] max-md:h-[76px]"
-                : "absolute w-[265px] h-[265px] rounded-full max-md:w-[200px] max-md:h-[200px]"
+                : "absolute w-[200px] h-[200px] rounded-full"
             }
             style={{
               border: "1.5px solid transparent",
@@ -87,7 +87,7 @@ export function VoiceOrb({ state, onClick, getAmplitude, isConnected = false, mi
         className={
           miniMode
             ? "w-[64px] h-[64px] rounded-full relative z-10 max-md:w-[64px] max-md:h-[64px]"
-            : "w-[240px] h-[240px] rounded-full relative z-10 max-md:w-[180px] max-md:h-[180px]"
+            : "w-[180px] h-[180px] rounded-full relative z-10"
         }
         style={{
           background: `radial-gradient(circle at 45% 40%,

@@ -276,13 +276,19 @@ export function VoiceScreen() {
         </>
       ) : (
         /* ─── LANDING MODE ─── */
-        /* top-[170px] reserves space for the fixed wordmark + tagline so the
-           centered content block (chip + the full-size 420px orb + hint) can
-           never reach up into the tagline on short desktop viewports. */
+        /* The orb is now 300×300 on every breakpoint (matching the mobile
+           layout the user signed off on), which lets the {card, orb, hint}
+           stack fit inside the region below the wordmark on typical laptop
+           viewports. With that headroom restored, justify-center is the
+           right strategy: the stack centers vertically in the available
+           space, which on mobile naturally drops the card down from the
+           tagline (the requested "more lower align with the title"
+           feeling), and on desktop keeps the orb fully visible above the
+           viewport bottom. */
         <div className="absolute inset-x-0 top-[170px] bottom-0 flex flex-col items-center justify-center px-4 max-md:top-[150px]">
           {activeStock && <StockBadge stock={activeStock} isConnected={isConnected} />}
           <div className="flex flex-col items-center">
-        <SuggestedQuestions
+            <SuggestedQuestions
               key={landingSessionKey}
               onSelect={handleSuggestedSelect}
               hidden={isConnected}

@@ -1,54 +1,49 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import stocks, { type Stock } from "@/lib/stocks";
 import { useLang } from "@/lib/useLang";
 
 /**
- * Rotating bilingual question chips above the orb.
+ * Portrait coverflow question deck (landing screen only).
  *
  * Purpose: solve the cold-start problem. Visitors land, see an animated orb,
- * and freeze because they don't know what to ask. A single chip rotates through
- * a curated list of starter questions (Turkish and English mixed 60/40) so
- * users see the product's surface area without a tutorial.
+ * and freeze because they don't know what to ask. The deck surfaces ONE focused
+ * starter question as a tall, gold-bordered card with a warm halo, while the
+ * prev/next questions peek in from the sides as ghost text — angled away, no
+ * border, dimmed. It hints "this is a deck, browse it" without a tutorial.
  *
  * Behavior:
- * - One chip visible at a time, 7s on screen, ~500ms cross-fade between.
- * - Pauses rotation on hover so the user can read without it disappearing.
- * - Clicking a chip sends that question as a user_message (caller wires this).
- * - Hidden entirely while a scene is active or once the conversation starts.
- * - Each chip click also fires onInteract so the parent can mark
- *   conversationStarted and hide chips for the rest of the session.
+ * - Center card: gold border, soft halo glow, large multi-line question text,
+ *   ticker subtitle at the bottom-left when relevant.
+ * - Side cards (prev/next): no border, just dim text, rotated back in 3D.
+ * - Auto-advances with a long eased slide (short dwell, long glide).
+ * - Hover pauses rotation. Click center → ask. Click a side → slide to center.
+ * - Hidden once a scene activates or the conversation starts.
+ * - Respects prefers-reduced-motion: single calm card, no auto-rotate.
  *
- * Design intent: chips are an invitation, not a menu. Once the user engages
- * once, they're never shown again this session.
+ * Design intent: the deck is an invitation, not a menu. Once the user engages
+ * once, the parent unmounts it for the rest of the session.
  */
 
 export interface SuggestedQuestion {
   text: string;
   lang: "tr" | "en";
   /**
-   * Optional portfolio-stock anchor. When set, the chip renders that company's
-   * monochrome logo to the left of the question text — recognition beats
-   * reading at a glance, and creates visual continuity with the StockBadge
-   * that appears when the agent starts talking about the same company.
-   *
-   * Qualitative questions ("when do you sell?", "portfolio allocation") leave
-   * this undefined so the rotation has a natural mix of with-logo and
-   * text-only chips. This keeps the chip from feeling like a uniform menu
-   * of company buttons.
+   * Optional portfolio-stock anchor. When set, the center card renders a small
+   * ticker subtitle so the question reads like a contextual prompt instead of a
+   * disembodied chip. Qualitative questions ("cost basis", "portfolio") leave
+   * this undefined so the deck has a natural mix of with-ticker and plain
+   * cards rather than feeling like a uniform menu of company buttons.
    */
   ticker?: "PLTR" | "HOOD" | "TEM" | "NBIS" | "AUR";
 }
 
 // Each pool is ordered by REAL user demand from the conversation flywheel
-// (wiki/flywheel/*.md). The chip rotation surfaces the questions users
-// actually ask, plus seeds of new feature demand (target prices, cost basis).
-// "Ne zaman satarsın?" / "When do you sell?" got cut — zero hits in 4 weeks
-// of flywheel data — and replaced with cost-basis and target-price chips
-// that map to real organic queries the agent kept refusing.
+// (wiki/flywheel/*.md). The rotation surfaces the questions users actually
+// ask, plus seeds of new feature demand (target prices, cost basis).
 const QUESTIONS_TR: SuggestedQuestion[] = [
   // Top demand (7 hits in week 14)
   { text: "Palantir'e neden yatırım yaptın?", lang: "tr", ticker: "PLTR" },
@@ -61,10 +56,9 @@ const QUESTIONS_TR: SuggestedQuestion[] = [
   { text: "Nebius'un büyüme hikayesi nedir?", lang: "tr", ticker: "NBIS" },
   // Portfolio overview — common organic ask ("Portföyde neler var?")
   { text: "Portföy dağılımını göster.", lang: "tr" },
-  // NEW: surfaces the cost-basis demand pattern from week 21
-  // ("Maliyetler ne?", "Tempus'u kaçtan aldı?")
+  // surfaces the cost-basis demand pattern from week 21
   { text: "Hisseleri kaçtan aldın?", lang: "tr" },
-  // NEW: drives discovery of the target-price tables we just shipped
+  // drives discovery of the target-price tables
   { text: "Palantir'in hedef fiyatı nedir?", lang: "tr", ticker: "PLTR" },
 ];
 
@@ -79,7 +73,24 @@ const QUESTIONS_EN: SuggestedQuestion[] = [
   { text: "What's Palantir's analyst price target?", lang: "en", ticker: "PLTR" },
 ];
 
-const ROTATION_MS = 5000;
+// Short dwell, long glide — reads as continuous motion, not a hard 5s swap.
+const DWELL_MS = 3800;
+const SLIDE_MS = 0.78; // seconds (framer transition)
+
+// Portrait-card geometry. Center card is tall (height > width). Side cards
+// peek with a big rotateY so they read as "the rest of the deck" not "two
+// more buttons." Numeric values feed framer transforms — Tailwind's `md:`
+// can't express these.
+//
+// Desktop height is intentionally close to mobile's: the parent landing
+// container vertically centers {card, orb, hint} in a fixed region below the
+// wordmark. The orb is ~420px, so a tall card overflows that region upward
+// on typical laptop viewports (~800px tall) and collides with the wordmark.
+// 280px keeps the stack under ~780px and preserves clearance.
+const DIMS = {
+  desktop: { w: 216, h: 280, gap: 176, rotate: 50, sideScale: 0.86, sideOpacity: 0.5 },
+  mobile: { w: 188, h: 268, gap: 130, rotate: 52, sideScale: 0.84, sideOpacity: 0.45 },
+} as const;
 
 interface Props {
   onSelect: (question: SuggestedQuestion) => void;
@@ -100,118 +111,247 @@ function buildRotation(pool: SuggestedQuestion[]): SuggestedQuestion[] {
   return out;
 }
 
+/**
+ * Shortest signed distance from `i` to the centered `index`, wrapping around
+ * the ring. 0 = center, -1 = one to the left, +1 = one to the right.
+ */
+function signedOffset(i: number, center: number, n: number): number {
+  let o = i - center;
+  if (o > n / 2) o -= n;
+  if (o < -n / 2) o += n;
+  return o;
+}
+
+/**
+ * Center card content: small logo + ticker tag at the top-left, big multi-line
+ * question filling the body, ticker name at the bottom-left as a subtitle.
+ */
+function CenterCard({ q, isDesktop }: { q: SuggestedQuestion; isDesktop: boolean }) {
+  const stock: Stock | undefined = q.ticker ? stocks[q.ticker] : undefined;
+  const titleSize = isDesktop ? "text-[22px] leading-[1.18]" : "text-[18px] leading-[1.2]";
+  return (
+    <div className="relative h-full w-full flex flex-col items-stretch justify-between px-5 py-5 md:px-6 md:py-6 text-left">
+      {/* top-left affordance: logo tucked into the corner. Plain text questions
+          ("portfolio") leave the slot empty so the layout stays balanced. */}
+      <div className="flex items-center gap-2 h-5">
+        {stock && (
+          <Image
+            src={stock.logo}
+            alt=""
+            width={18}
+            height={18}
+            className="brightness-0 invert"
+            style={{ width: "auto", height: "auto", maxWidth: 18, maxHeight: 18, opacity: 0.7 }}
+            aria-hidden
+          />
+        )}
+        {stock && (
+          <span
+            className="text-[10px] tracking-[0.14em] uppercase font-medium"
+            style={{ color: "rgba(212, 196, 160, 0.65)" }}
+          >
+            {stock.ticker}
+          </span>
+        )}
+      </div>
+
+      <div
+        className={`${titleSize} font-normal tracking-[-0.015em]`}
+        style={{ color: "#e6d4a8" }}
+      >
+        {q.text}
+      </div>
+
+      <div className="h-4 flex items-end">
+        {stock && (
+          <span className="text-[11px] font-light" style={{ color: "rgba(212, 196, 160, 0.5)" }}>
+            {stock.name}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Side card content: just dim, naturally-wrapped text. No logo, no border —
+ * matches the reference mockup where peek cards read as ghost text fragments.
+ * Side text is positioned toward the inner edge (closest to center card) so
+ * the eye reads "next →" not "another button."
+ */
+function SideCard({ q, side }: { q: SuggestedQuestion; side: "left" | "right" }) {
+  return (
+    <div
+      className={`h-full w-full flex flex-col justify-center text-left ${
+        side === "left" ? "items-end pr-3 pl-4" : "items-start pl-3 pr-4"
+      }`}
+    >
+      <div
+        className="text-[15px] leading-[1.32] font-light tracking-[-0.01em] max-w-[140px]"
+        style={{ color: "#a89a82" }}
+      >
+        {q.text}
+      </div>
+    </div>
+  );
+}
+
 export function SuggestedQuestions({ onSelect, hidden }: Props) {
   const lang = useLang();
-  // IMPORTANT: rotation and the starting index must be DETERMINISTIC on the
-  // first render so server-rendered HTML matches the client (no hydration
-  // mismatch). We start with the un-shuffled pool at index 0, then shuffle +
-  // pick a random start in a mount effect (client-only). The parent forces a
-  // fresh mount via `key` after each conversation, which re-runs this.
+  const reduceMotion = useReducedMotion();
+
+  // Deterministic first render so SSR HTML matches the client (no hydration
+  // mismatch): start un-shuffled at index 0, then shuffle + pick a random
+  // start in a mount effect. `mounted` gates the 3D deck so the first paint
+  // is a single plain card — clean progressive enhancement.
   const [rotation, setRotation] = useState<SuggestedQuestion[]>(() =>
     lang === "tr" ? QUESTIONS_TR : QUESTIONS_EN,
   );
   const [index, setIndex] = useState(0);
+  const [mounted, setMounted] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
 
-  // Re-shuffle whenever the language changes (or on first client mount). Runs
-  // only on the client, so the random shuffle never causes a hydration diff.
   useEffect(() => {
     const pool = lang === "tr" ? QUESTIONS_TR : QUESTIONS_EN;
     setRotation(buildRotation(pool));
     setIndex(Math.floor(Math.random() * pool.length));
+    setMounted(true);
   }, [lang]);
 
-  // Mirror paused into a ref so the interval callback can read the latest
-  // value without re-creating the interval (which would reset the 5s clock
-  // every time the user mouses in or out).
+  // Track the breakpoint for coverflow geometry (transforms are numeric, so
+  // we can't lean on Tailwind's md: here).
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const apply = () => setIsDesktop(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  // Mirror paused into a ref so the interval callback reads the latest value
+  // without re-creating the interval (which would reset the dwell clock on
+  // every mouse enter/leave).
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
 
   useEffect(() => {
-    if (hidden) return;
+    if (hidden || reduceMotion) return;
     const id = setInterval(() => {
       if (pausedRef.current) return;
       setIndex((i) => (i + 1) % rotation.length);
-    }, ROTATION_MS);
+    }, DWELL_MS);
     return () => clearInterval(id);
-  }, [hidden, rotation.length]);
+  }, [hidden, reduceMotion, rotation.length]);
 
   if (hidden) return null;
 
-  const current = rotation[index];
-  const stock: Stock | undefined = current.ticker ? stocks[current.ticker] : undefined;
+  const dims = isDesktop ? DIMS.desktop : DIMS.mobile;
+  const N = rotation.length;
 
-  return (
-    <div
-      className="flex items-center justify-center min-h-[36px] -mb-2 md:-mb-1 px-4 relative z-20"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-    >
-      <AnimatePresence mode="wait">
-        <motion.button
-          key={`${index}-${current.text}`}
+  // Center card chrome: gold border + warm halo glow. The double box-shadow
+  // (outer halo + inner soft fill) is what gives the card its "lit from the
+  // edges" quality in the reference mockup — a single glow flattens it.
+  const centerStyle: React.CSSProperties = {
+    background: "rgba(28, 22, 14, 0.55)",
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
+    border: "1.5px solid rgba(214, 178, 102, 0.7)",
+    boxShadow:
+      "0 0 80px -10px rgba(214, 178, 102, 0.45), 0 0 28px -6px rgba(214, 178, 102, 0.35), inset 0 0 40px -16px rgba(214, 178, 102, 0.3)",
+  };
+
+  // Side card chrome: NO border, NO background — just dim text floating at
+  // angle. Matches the reference where the peek cards are pure typography.
+  const sideStyle: React.CSSProperties = {
+    background: "transparent",
+    border: "none",
+    boxShadow: "none",
+  };
+
+  // ─── Reduced motion OR pre-mount: a single calm card, no deck, no rotate.
+  if (reduceMotion || !mounted) {
+    const current = rotation[index];
+    return (
+      <div
+        className="relative z-20 mb-4 md:mb-6 flex items-center justify-center"
+        style={{ height: dims.h }}
+      >
+        <button
           type="button"
           onClick={() => onSelect(current)}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
-          className="
-            group relative
-            px-8 py-3.5 md:px-12 md:py-4
-            min-w-[260px] md:min-w-[360px]
-            max-w-[88vw]
-            rounded-full
-            text-[12px] md:text-[13px]
-            font-normal
-            leading-[1.5]
-            whitespace-nowrap
-            cursor-pointer
-            transition-colors duration-300
-          "
-          style={{
-            // Warm-palette glass — ties into the gold accent system used by
-            // StockBadge so the chip feels like part of the same world, not a
-            // bolted-on web button.
-            color: "#9a8a72",
-            background: "rgba(200, 160, 80, 0.06)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-            border: "1.5px solid rgba(200, 160, 80, 0.28)",
-            letterSpacing: "-0.015em",
-          }}
-          whileHover={{
-            y: -1,
-            color: "#d4c4a0",
-            background: "rgba(200, 160, 80, 0.10)",
-            borderColor: "rgba(200, 160, 80, 0.45)",
-            transition: { duration: 0.2, ease: "easeOut" },
-          }}
-          whileTap={{ scale: 0.97 }}
+          className="rounded-[22px] overflow-hidden cursor-pointer"
+          style={{ width: dims.w, height: dims.h, ...centerStyle }}
           aria-label={`Ask: ${current.text}`}
         >
-          <span className="inline-flex items-center justify-center gap-2.5 md:gap-3">
-            {stock && (
-              <span
-                className="inline-flex items-center justify-center w-[18px] h-[18px] md:w-[20px] md:h-[20px] shrink-0"
-                aria-hidden
-              >
-                <Image
-                  src={stock.logo}
-                  alt=""
-                  width={18}
-                  height={18}
-                  className="brightness-0 invert opacity-50"
-                  style={{ width: "auto", height: "auto", maxWidth: 18, maxHeight: 18 }}
-                />
-              </span>
+          <CenterCard q={current} isDesktop={isDesktop} />
+        </button>
+      </div>
+    );
+  }
+
+  // ─── Coverflow deck ───────────────────────────────────────────────────────
+  return (
+    <div
+      className="relative z-20 mb-4 md:mb-6 w-full flex items-center justify-center"
+      style={{ height: dims.h, perspective: 1400 }}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      aria-roledescription="carousel"
+    >
+      {rotation.map((q, i) => {
+        const offset = signedOffset(i, index, N);
+        const isCenter = offset === 0;
+        const visible = Math.abs(offset) <= 1;
+        const side: "left" | "right" = offset < 0 ? "left" : "right";
+
+        return (
+          <motion.button
+            key={`${q.lang}-${q.text}`}
+            type="button"
+            onClick={() => (isCenter ? onSelect(q) : setIndex(i))}
+            tabIndex={visible ? 0 : -1}
+            aria-hidden={!visible}
+            aria-label={isCenter ? `Ask: ${q.text}` : `Show: ${q.text}`}
+            initial={false}
+            animate={{
+              x: offset * dims.gap,
+              rotateY: offset * -dims.rotate,
+              z: isCenter ? 0 : -140,
+              scale: isCenter ? 1 : dims.sideScale,
+              opacity: visible ? (isCenter ? 1 : dims.sideOpacity) : 0,
+            }}
+            transition={{ duration: SLIDE_MS, ease: [0.22, 1, 0.36, 1] }}
+            whileHover={
+              isCenter
+                ? { scale: 1.015 }
+                : { opacity: Math.min(0.85, dims.sideOpacity + 0.25) }
+            }
+            whileTap={{ scale: isCenter ? 0.985 : dims.sideScale }}
+            className={`absolute left-1/2 top-1/2 rounded-[22px] cursor-pointer will-change-transform overflow-hidden ${
+              isCenter ? "" : "outline-none"
+            }`}
+            style={{
+              width: dims.w,
+              height: dims.h,
+              marginLeft: -dims.w / 2,
+              marginTop: -dims.h / 2,
+              zIndex: isCenter ? 30 : 20 - Math.abs(offset),
+              pointerEvents: visible ? "auto" : "none",
+              transformStyle: "preserve-3d",
+              ...(isCenter ? centerStyle : sideStyle),
+            }}
+          >
+            {isCenter ? (
+              <CenterCard q={q} isDesktop={isDesktop} />
+            ) : (
+              <SideCard q={q} side={side} />
             )}
-            <span>{current.text}</span>
-          </span>
-        </motion.button>
-      </AnimatePresence>
+          </motion.button>
+        );
+      })}
     </div>
   );
 }
