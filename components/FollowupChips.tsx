@@ -38,7 +38,7 @@ interface Props {
   onSelect: (q: FollowupQuestion) => void;
 }
 
-const REVEAL_DELAY_MS = 800;
+const REVEAL_DELAY_MS = 250;
 
 export function FollowupChips({ followups, activeLang, onSelect }: Props) {
   const browserLang = useLang();
@@ -99,8 +99,6 @@ export function FollowupChips({ followups, activeLang, onSelect }: Props) {
             flex flex-col md:flex-row md:flex-wrap
             items-start md:items-center justify-start
             gap-2 md:gap-2
-            mt-8 md:mt-7
-            pb-2
           "
           aria-label="Follow-up questions"
         >

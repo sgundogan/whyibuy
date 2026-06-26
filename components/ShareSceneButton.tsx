@@ -59,6 +59,10 @@ export function ShareSceneButton({
           backgroundColor: "#0c0c0c",
           pixelRatio: 2,
           cacheBust: true,
+          // The share button lives inside the captured node (same row as the
+          // title, for alignment) but must not appear in the image — skip it.
+          filter: (el) =>
+            !(el instanceof HTMLElement && el.dataset.noShareCapture !== undefined),
         });
       } finally {
         if (wm) wm.style.opacity = "0";

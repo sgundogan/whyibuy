@@ -58,23 +58,31 @@ export function SceneOrchestrator({
           animate={{ opacity: 1, y: 0, transition: enterTransition }}
           exit={{ opacity: 0, y: -4, transition: exitTransition }}
           className="w-full"
-          // Horizontal padding only. The big bottom padding that used to live
-          // here (240/210px) was sized to clear a SEPARATE fixed chip bar that
-          // no longer exists — chips now render directly under this chart as
-          // one unit (see VoiceScreen Zone 2+3), and the parent container owns
-          // scrolling + orb clearance. Keeping the old bottom padding created a
-          // dead gap between the chart and its questions.
-          style={{ padding: isMobile ? "0 20px" : "0 32px" }}
         >
-          {/* captureRef wraps everything that should appear in the shared image:
-              title, chart, and the watermark. */}
-          <div ref={captureRef}>
-            <h2
-              className="text-[15px] font-normal tracking-[0.5px] mb-8 max-md:text-[13px] max-md:mb-6"
-              style={{ color: "#b89850", fontFamily: "var(--font-sans)" }}
-            >
-              {activeScene.title}
-            </h2>
+          {/* captureRef wraps everything in the shared image. Its OWN padding
+              (not the wrapper's) is what gives the exported PNG breathing room
+              on all four edges — capturing this node includes the padding, so
+              the shared image isn't cramped to the edges. Horizontal value
+              matches the old wrapper padding so the in-app layout is unchanged;
+              the vertical padding is the new top/bottom margin for the export.
+              The share button sits on the SAME flex row as the title
+              (items-center → aligned with the heading) and is excluded from the
+              PNG via the data-no-share-capture filter in ShareSceneButton. */}
+          <div
+            ref={captureRef}
+            style={{ padding: isMobile ? "18px 20px" : "22px 32px" }}
+          >
+            <div className="flex items-center justify-between gap-3 mb-8 max-md:mb-6">
+              <h2
+                className="text-[15px] font-normal tracking-[0.5px] max-md:text-[13px]"
+                style={{ color: "#b89850", fontFamily: "var(--font-sans)" }}
+              >
+                {activeScene.title}
+              </h2>
+              <div data-no-share-capture className="shrink-0 -mr-1">
+                <ShareSceneButton targetRef={captureRef} title={activeScene.title} />
+              </div>
+            </div>
             <ErrorBoundary onError={() => setHasError(true)}>
               <DynamicChart scene={activeScene} />
             </ErrorBoundary>
@@ -100,15 +108,6 @@ export function SceneOrchestrator({
                 whyibuy.io
               </span>
             </div>
-          </div>
-
-          {/* Share button in its OWN action row beneath the card, right-aligned
-              — the content→action-row pattern (Twitter/YouTube). In normal flow
-              and OUTSIDE captureRef, so it can never overlap the chart (the old
-              absolute corner placement collided with the table) and never lands
-              in the exported PNG. */}
-          <div className="mt-2 flex justify-end">
-            <ShareSceneButton targetRef={captureRef} title={activeScene.title} />
           </div>
           {/* Follow-up chips are rendered by VoiceScreen (Zone 2+3), directly
               beneath this scene, NOT here. */}
