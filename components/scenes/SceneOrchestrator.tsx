@@ -1,8 +1,9 @@
 "use client";
 
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DynamicChart } from "./DynamicChart";
+import { ShareSceneButton } from "../ShareSceneButton";
 import type { ActiveScene, FollowupQuestion } from "@/hooks/useVoiceBrain";
 import { Component, type ReactNode, type ErrorInfo } from "react";
 
@@ -23,6 +24,10 @@ export function SceneOrchestrator({
 }: SceneOrchestratorProps) {
   const prefersReduced = useReducedMotion();
   const [hasError, setHasError] = useState(false);
+  // Node handed to the share button to rasterize. Wraps title + chart +
+  // watermark, but NOT the share button itself (which sits outside it), so the
+  // button never appears in the shared PNG.
+  const captureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setHasError(false);
@@ -61,19 +66,52 @@ export function SceneOrchestrator({
           // dead gap between the chart and its questions.
           style={{ padding: isMobile ? "0 20px" : "0 32px" }}
         >
-          <h2
-            className="text-[15px] font-normal tracking-[0.5px] mb-8 max-md:text-[13px] max-md:mb-6"
-            style={{ color: "#b89850", fontFamily: "var(--font-sans)" }}
-          >
-            {activeScene.title}
-          </h2>
-          <ErrorBoundary onError={() => setHasError(true)}>
-            <DynamicChart scene={activeScene} />
-          </ErrorBoundary>
-          {/* Follow-up chips are now rendered by VoiceScreen in their own
-              absolute-positioned bar above the orb, NOT inside this scrollable
-              scene container. That keeps them visually pinned above the orb
-              regardless of how tall the chart is. */}
+          {/* captureRef wraps everything that should appear in the shared image:
+              title, chart, and the watermark. */}
+          <div ref={captureRef}>
+            <h2
+              className="text-[15px] font-normal tracking-[0.5px] mb-8 max-md:text-[13px] max-md:mb-6"
+              style={{ color: "#b89850", fontFamily: "var(--font-sans)" }}
+            >
+              {activeScene.title}
+            </h2>
+            <ErrorBoundary onError={() => setHasError(true)}>
+              <DynamicChart scene={activeScene} />
+            </ErrorBoundary>
+            {/* Brand watermark, bottom-LEFT (signature position for shared
+                infographics). INVISIBLE in-app (opacity 0) — ShareSceneButton
+                reveals it at 0.35 only for the capture, so the live chart stays
+                clean but every shared image carries attribution. */}
+            <div
+              className="mt-3 flex justify-start"
+              aria-hidden
+              data-share-watermark
+              style={{ opacity: 0 }}
+            >
+              <span
+                style={{
+                  color: "#c8a050",
+                  fontSize: "11px",
+                  letterSpacing: "0.08em",
+                  fontWeight: 500,
+                  fontFamily: "var(--font-sans)",
+                }}
+              >
+                whyibuy.io
+              </span>
+            </div>
+          </div>
+
+          {/* Share button in its OWN action row beneath the card, right-aligned
+              — the content→action-row pattern (Twitter/YouTube). In normal flow
+              and OUTSIDE captureRef, so it can never overlap the chart (the old
+              absolute corner placement collided with the table) and never lands
+              in the exported PNG. */}
+          <div className="mt-3 flex justify-end">
+            <ShareSceneButton targetRef={captureRef} title={activeScene.title} />
+          </div>
+          {/* Follow-up chips are rendered by VoiceScreen (Zone 2+3), directly
+              beneath this scene, NOT here. */}
         </motion.div>
       </AnimatePresence>
     </div>
