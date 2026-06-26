@@ -395,14 +395,14 @@ function TargetTable({
   const hasRange = low !== high;
 
   return (
-    <div className="flex flex-col gap-6 max-md:gap-4">
+    <div className="flex flex-col gap-6 max-md:gap-2">
       <div
         className="flex flex-col rounded-xl overflow-hidden"
         style={{ border: "1px solid rgba(200, 160, 60, 0.10)" }}
       >
         {/* Header row */}
         <div
-          className="grid items-center px-5 py-2.5 text-[10px] tracking-[1px] uppercase max-md:px-4 max-md:py-2 max-md:text-[9px]"
+          className="grid items-center px-5 py-2.5 text-[10px] tracking-[1px] uppercase max-md:px-4 max-md:py-1.5 max-md:text-[9px]"
           style={{
             gridTemplateColumns: "1fr auto auto",
             gap: "16px",
@@ -420,7 +420,7 @@ function TargetTable({
         {targets.map((t, i) => (
           <motion.div
             key={`${t.firm}-${i}`}
-            className="grid items-center px-5 py-3 text-[13px] max-md:px-4 max-md:py-2.5 max-md:text-[12px]"
+            className="grid items-center px-5 py-3 text-[13px] max-md:px-4 max-md:py-1.5 max-md:text-[12px]"
             style={{
               gridTemplateColumns: "1fr auto auto",
               gap: "16px",
@@ -463,7 +463,7 @@ function TargetTable({
         {/* Range footer row — shows the spread of the displayed targets. */}
         {hasRange && (
           <motion.div
-            className="grid items-center px-5 py-2.5 text-[12px] max-md:px-4 max-md:py-2 max-md:text-[11px]"
+            className="grid items-center px-5 py-2.5 text-[12px] max-md:px-4 max-md:py-1.5 max-md:text-[11px]"
             style={{
               gridTemplateColumns: "1fr auto",
               gap: "16px",

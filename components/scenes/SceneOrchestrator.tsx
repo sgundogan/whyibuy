@@ -70,7 +70,7 @@ export function SceneOrchestrator({
               PNG via the data-no-share-capture filter in ShareSceneButton. */}
           <div
             ref={captureRef}
-            style={{ padding: isMobile ? "18px 20px" : "22px 32px" }}
+            style={{ padding: isMobile ? "10px 20px" : "22px 32px" }}
           >
             <div className="flex items-center justify-between gap-3 mb-8 max-md:mb-6">
               <h2
