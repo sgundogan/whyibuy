@@ -278,16 +278,15 @@ export function VoiceScreen() {
         </>
       ) : (
         /* ─── LANDING MODE ─── */
-        /* The orb is now 300×300 on every breakpoint (matching the mobile
-           layout the user signed off on), which lets the {card, orb, hint}
-           stack fit inside the region below the wordmark on typical laptop
-           viewports. With that headroom restored, justify-center is the
-           right strategy: the stack centers vertically in the available
-           space, which on mobile naturally drops the card down from the
-           tagline (the requested "more lower align with the title"
-           feeling), and on desktop keeps the orb fully visible above the
-           viewport bottom. */
-        <div className="absolute inset-x-0 top-[170px] bottom-0 flex flex-col items-center justify-center px-4 max-md:top-[150px]">
+        /* The {card, orb, hint} stack centers vertically in the region below
+           the wordmark. Mobile top reserve is 180px (was 150): the dynamic
+           viewport (dvh) is shorter than 100vh, so on a phone the centered
+           stack used to bleed UP and the deck card + its warm halo overlapped
+           the "Talk to my investing thesis" tagline. The larger reserve pushes
+           the stack down enough to clear the tagline AND its glow; the mobile
+           orb is trimmed (see VoiceOrb) so the down-shift doesn't clip the orb
+           or hint at the bottom. Desktop is unchanged (top-170, tall enough). */
+        <div className="absolute inset-x-0 top-[170px] bottom-0 flex flex-col items-center justify-center px-4 max-md:top-[180px]">
           {activeStock && <StockBadge stock={activeStock} isConnected={isConnected} />}
           <div className="flex flex-col items-center">
             <SuggestedQuestions

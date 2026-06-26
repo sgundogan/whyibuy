@@ -40,7 +40,7 @@ export function VoiceOrb({ state, onClick, getAmplitude, isConnected = false, mi
       className={
         miniMode
           ? "relative z-30 w-[88px] h-[88px] flex items-center justify-center cursor-pointer max-md:w-[88px] max-md:h-[88px]"
-          : "relative w-[300px] h-[300px] flex items-center justify-center cursor-pointer"
+          : "relative w-[300px] h-[300px] flex items-center justify-center cursor-pointer max-md:w-[264px] max-md:h-[264px]"
       }
       transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
       onClick={onClick}
