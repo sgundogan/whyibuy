@@ -233,8 +233,8 @@ export function VoiceScreen() {
             className="
               absolute inset-x-0 z-20 overflow-y-auto
               flex flex-col items-center justify-start
-              top-[120px] bottom-[140px]
-              max-md:top-[110px] max-md:bottom-[140px]
+              top-[120px] bottom-[120px]
+              max-md:top-[104px] max-md:bottom-[118px]
               px-8 max-md:px-5
             "
           >

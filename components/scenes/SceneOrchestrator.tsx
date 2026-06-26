@@ -83,7 +83,7 @@ export function SceneOrchestrator({
                 reveals it at 0.35 only for the capture, so the live chart stays
                 clean but every shared image carries attribution. */}
             <div
-              className="mt-3 flex justify-start"
+              className="mt-2 flex justify-start"
               aria-hidden
               data-share-watermark
               style={{ opacity: 0 }}
@@ -107,7 +107,7 @@ export function SceneOrchestrator({
               and OUTSIDE captureRef, so it can never overlap the chart (the old
               absolute corner placement collided with the table) and never lands
               in the exported PNG. */}
-          <div className="mt-3 flex justify-end">
+          <div className="mt-2 flex justify-end">
             <ShareSceneButton targetRef={captureRef} title={activeScene.title} />
           </div>
           {/* Follow-up chips are rendered by VoiceScreen (Zone 2+3), directly
