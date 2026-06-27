@@ -112,7 +112,18 @@ function resumeAllTrackedContexts() {
 
 export type OrbState = "listening" | "thinking" | "speaking" | "error";
 
-export type ChartType = "bar" | "line" | "metric" | "donut" | "targets";
+export type ChartType =
+  | "bar"
+  | "line"
+  | "metric"
+  | "donut"
+  | "targets"
+  // Narrative scene types — not charts, but cards. They surface the qualitative
+  // content that lives in the Obsidian vault (Thesis/Risks/Catalysts sections)
+  // and make it visible + shareable, instead of only spoken by the agent.
+  | "thesis"
+  | "risks"
+  | "catalysts";
 
 export interface DataPoint {
   label: string;
@@ -173,6 +184,23 @@ export interface SceneData {
    * component computes the consensus + range from these rows automatically.
    */
   targets?: TargetRow[];
+  /**
+   * Thesis pillars — 3-4 short bullets distilled from the vault's `## Thesis`
+   * paragraph. Used by the "thesis" scene type. Each pillar should fit on one
+   * line at mobile width and front-load the verb.
+   */
+  pillars?: { text: string }[];
+  /**
+   * Risk items for the "risks" scene type. Title is bold; body is one line of
+   * detail. Keep to 4 — the card can't fit more without cramping.
+   */
+  risks?: { title: string; body: string }[];
+  /**
+   * Timeline rows for the "catalysts" scene type. Status "done" renders
+   * dimmed with a check; "upcoming" renders gold with a pending indicator.
+   * Date is freeform ("Q2 2026", "Jun 4 2026", "2027") — shown as-is.
+   */
+  timeline?: { date: string; text: string; status: "done" | "upcoming" }[];
   annotation?: string;
   source?: string;
   /**

@@ -60,6 +60,10 @@ const QUESTIONS_TR: SuggestedQuestion[] = [
   { text: "Hisseleri kaçtan aldın?", lang: "tr" },
   // drives discovery of the target-price tables
   { text: "Palantir'in hedef fiyatı nedir?", lang: "tr", ticker: "PLTR" },
+  // narrative scenes — surfaces the new thesis/risks/catalysts cards so users
+  // discover they exist without reading the system prompt
+  { text: "Palantir için riskler neler?", lang: "tr", ticker: "PLTR" },
+  { text: "Tempus için yaklaşan katalistler neler?", lang: "tr", ticker: "TEM" },
 ];
 
 const QUESTIONS_EN: SuggestedQuestion[] = [
@@ -71,6 +75,9 @@ const QUESTIONS_EN: SuggestedQuestion[] = [
   { text: "Show me your portfolio", lang: "en" },
   { text: "What's your cost basis on each stock?", lang: "en" },
   { text: "What's Palantir's analyst price target?", lang: "en", ticker: "PLTR" },
+  // narrative scenes
+  { text: "What are the risks on Palantir?", lang: "en", ticker: "PLTR" },
+  { text: "What catalysts are coming for Tempus?", lang: "en", ticker: "TEM" },
 ];
 
 // Short dwell, long glide — reads as continuous motion, not a hard 5s swap.

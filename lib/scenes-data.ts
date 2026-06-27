@@ -699,4 +699,309 @@ export const SCENE_REGISTRY: Record<string, SceneData> = {
       { text: "Walk me through the thesis", lang: "en" },
     ],
   },
+
+  // ─── Narrative scenes: Thesis / Risks / Catalysts ──────────────────────
+  // Distilled from the vault's `## Thesis`, `## Risks`, `## Catalysts` sections
+  // (wiki/stocks/*.md). 4 items per card max — the agent voices the rest if
+  // the user asks deeper. The scene + the chat together = full coverage.
+
+  // ─── Palantir narrative ──────────────────────────────────────
+
+  PLTR_thesis: {
+    chart_type: "thesis",
+    title: "Palantir — Why I'm Holding",
+    pillars: [
+      { text: "AI işletim sistemi: Ontology + FDE + agent orchestration — 10 yıllık öncülük, kopyalanamaz." },
+      { text: "Rule of 40 = 145 ve hızlanıyor. Büyük cap yazılımda eşi görülmemiş." },
+      { text: "Müşteri başına değer büyüyor: bir enerji şirketi $7M → $31M ACV, yeni satış döngüsü yok." },
+      { text: "Satış ekibi küçülürken U.S. commercial +137% büyüyor — müşteriler satış ekibi oldu." },
+    ],
+    annotation: "Yönetim 2026'da $7.19B gelir (+61%) ve Rule of 40 = 118 verdi. Üç yılda 6.5x organik büyüme.",
+    followups: [
+      { text: "Palantir için riskler neler?", lang: "tr" },
+      { text: "Yaklaşan katalistler neler?", lang: "tr" },
+      { text: "Anahtar metrikler neler?", lang: "tr" },
+      { text: "What are the risks?", lang: "en" },
+      { text: "What catalysts are coming?", lang: "en" },
+      { text: "What are the key metrics?", lang: "en" },
+    ],
+  },
+
+  PLTR_risks: {
+    chart_type: "risks",
+    title: "Palantir — Tezi Bozacak Şeyler",
+    risks: [
+      { title: "Valuation premium", body: "P/E baskısı sürekli. Agresif 2026 rehberinden (Rule 118) sapma multiple kompresyonu tetikler." },
+      { title: "Uluslararası ticari durgunluk", body: "International commercial sadece +2% (FY2025). ABD yavaşlarsa yurtdışı telafi edemez." },
+      { title: "Devlet konsantrasyonu / DOGE riski", body: "U.S. gov $1.855B (+55%). Büyük bir kontrat duraksaması çeyreklik rakamları sarsar." },
+      { title: "Key-man riski", body: "Karp + Sankar yer değiştirilemez. Kültür, FDE modeli, ürün vizyonu — hepsi onlardan." },
+    ],
+    followups: [
+      { text: "Tez neden hâlâ ayakta?", lang: "tr" },
+      { text: "Yaklaşan katalistler neler?", lang: "tr" },
+      { text: "Ne zaman satarsın?", lang: "tr" },
+      { text: "Why does the thesis still hold?", lang: "en" },
+      { text: "What catalysts are coming?", lang: "en" },
+      { text: "When would you sell?", lang: "en" },
+    ],
+  },
+
+  PLTR_catalysts: {
+    chart_type: "catalysts",
+    title: "Palantir — Catalyst Timeline",
+    timeline: [
+      { date: "Q1 2026", text: "Rekor sonuçlar: +85% gelir, Rule of 40 = 145, FY rehberi $7.65B'a yükseltildi.", status: "done" },
+      { date: "Jun 4 2026", text: "AIPCon 10 dört-fırsat kümesi: GNP Seguros, McCarthy, Google Cloud, Kirkland & Ellis aynı gün.", status: "done" },
+      { date: "2026 H2", text: "Maven full rollout + Maven Edge (autonomous live-fire UAV koordinasyonu) tüm komutanlıklara.", status: "upcoming" },
+      { date: "2026-27", text: "ShipOS modeli: fighters, surface vessels, drones, pharma, data center inşaatına yayılım.", status: "upcoming" },
+    ],
+    followups: [
+      { text: "Tez neden bu kadar güçlü?", lang: "tr" },
+      { text: "Riskler neler?", lang: "tr" },
+      { text: "AIPCon 10 ne demek?", lang: "tr" },
+      { text: "Why is the thesis so strong?", lang: "en" },
+      { text: "What are the risks?", lang: "en" },
+      { text: "What was AIPCon 10?", lang: "en" },
+    ],
+  },
+
+  // ─── Robinhood narrative ─────────────────────────────────────
+
+  HOOD_thesis: {
+    chart_type: "thesis",
+    title: "Robinhood — Why I'm Holding",
+    pillars: [
+      { text: "Artık aracı kurum değil: tam yığın finansal platform — $4.5B gelir, $2.5B EBITDA, %56 marj." },
+      { text: "11 farklı $100M+ ARR işi. 12. ürünün marjinal maliyeti sıfıra yakın — gerçek flywheel." },
+      { text: "Tahmin piyasaları sleeper: 1. yılda $12B; Rothera + Susquehanna JV. Şirket tarihinin en hızlı $100M ARR'ı." },
+      { text: "AI ile 9-haneli mühendislik tasarrufu, %75+ destek otomasyonu. Gelir +52% büyürken gider disipline." },
+    ],
+    annotation: "S&P 500'e Haziran 2025'te girdi — endeks fonları zorunlu alıcı. Vlad Tenev artık ürün + sermaye + iletişim CEO'su.",
+    followups: [
+      { text: "Robinhood için riskler neler?", lang: "tr" },
+      { text: "Yaklaşan katalistler neler?", lang: "tr" },
+      { text: "Gold üyelikleri ne durumda?", lang: "tr" },
+      { text: "What are the risks?", lang: "en" },
+      { text: "What catalysts are coming?", lang: "en" },
+      { text: "How is Gold growing?", lang: "en" },
+    ],
+  },
+
+  HOOD_risks: {
+    chart_type: "risks",
+    title: "Robinhood — Tezi Bozacak Şeyler",
+    risks: [
+      { title: "İşlem geliri volatilitesi", body: "Options + crypto piyasa volatilitesine bağlı. Uzun durgunluk işlem gelirini sıkıştırır." },
+      { title: "Tahmin piyasaları regülatif risk", body: "Eyalet bazlı meydan okumalar var. Federal/çoklu-eyalet kıskaç $300M+ ARR'ı vurabilir." },
+      { title: "PFOF / options regülasyonu", body: "#1 options pazar payı = SEC PFOF reformunun en görünür hedefi." },
+      { title: "Bankacılık execution riski", body: "25K erken kullanıcıda %50+ direct deposit umut verici ama milyonlara ölçeklendirme kanıtlanmadı." },
+    ],
+    followups: [
+      { text: "Tez neden hâlâ ayakta?", lang: "tr" },
+      { text: "Yaklaşan katalistler neler?", lang: "tr" },
+      { text: "Ne zaman satarsın?", lang: "tr" },
+      { text: "Why does the thesis still hold?", lang: "en" },
+      { text: "What catalysts are coming?", lang: "en" },
+      { text: "When would you sell?", lang: "en" },
+    ],
+  },
+
+  HOOD_catalysts: {
+    chart_type: "catalysts",
+    title: "Robinhood — Catalyst Timeline",
+    timeline: [
+      { date: "Jun 2025", text: "S&P 500 dahil edildi — endeks fonları zorunlu alıcı, kalıcı kurumsal taban.", status: "done" },
+      { date: "May 27 2026", text: "Open to Agents: ilk MCP-native broker. Agent-driven hesap akışı için altyapı.", status: "done" },
+      { date: "Jul 4 2026", text: "Trump Accounts lansmanı — federal IRA programı için Treasury trustee. ~$14B potansiyel AUM.", status: "upcoming" },
+      { date: "2026 H2", text: "Robinhood Banking ulusal rollout (3.5% APY) + Gold Card 1M+ holder hedefi.", status: "upcoming" },
+    ],
+    followups: [
+      { text: "Tez neden bu kadar güçlü?", lang: "tr" },
+      { text: "Riskler neler?", lang: "tr" },
+      { text: "Tahmin piyasaları ne kadar büyük?", lang: "tr" },
+      { text: "Why is the thesis so strong?", lang: "en" },
+      { text: "What are the risks?", lang: "en" },
+      { text: "How big are prediction markets?", lang: "en" },
+    ],
+  },
+
+  // ─── Aurora narrative ────────────────────────────────────────
+
+  AUR_thesis: {
+    chart_type: "thesis",
+    title: "Aurora — Why I'm Holding",
+    pillars: [
+      { text: "Uzun vadeli yapısal bahis: ABD lojistiğinde sürücü açığı kötüleşiyor, otonom kamyon = en açık çözüm." },
+      { text: "8.5 yıllık güvenlik-öncelikli geliştirme; Nisan 2025'te ticari driverless lansman. 250K mil, sıfır kaza." },
+      { text: "Validasyon altyapısı az fark edilen moat: yeni rotaları günler/haftalarda doğruluyorlar — SpaceX avantajı." },
+      { text: "OEM + donanım + müşteri ilişkileri yerinde. 2026 = ticari modeli kanıtlama; 2027 = DaaS modeli + AUMOVIO." },
+    ],
+    annotation: "Pozisyon ~10%. İlk alış Şub 2025 @ $7.91/$6.83, ortalama ~$6.60, DCA sürüyor.",
+    followups: [
+      { text: "Aurora için riskler neler?", lang: "tr" },
+      { text: "Yaklaşan katalistler neler?", lang: "tr" },
+      { text: "Kaç mil sürdüler driverless?", lang: "tr" },
+      { text: "What are the risks?", lang: "en" },
+      { text: "What catalysts are coming?", lang: "en" },
+      { text: "How many driverless miles?", lang: "en" },
+    ],
+  },
+
+  AUR_risks: {
+    chart_type: "risks",
+    title: "Aurora — Tezi Bozacak Şeyler",
+    risks: [
+      { title: "Filo rampası execution riski", body: "200+ kamyon yıl sonu hedefi Roush'tan haftada 20 upfit gerektiriyor. Herhangi gecikme geliri öteler." },
+      { title: "Düşük marj zamanlaması kayması", body: "Run-rate breakeven GM 2026 çıkışı — ticari lansman gibi 2027'ye kayabilir." },
+      { title: "AUMOVIO Gen 3 execution", body: "2027 üretim başlangıcı çok-taraflı bağımlılık. Slip = on binlerce kamyon ölçeğini geciktirir." },
+      { title: "Regülatif kırılganlık", body: "Tek bir ciddi olay eyalet bazlı moratoryumları tetikler. AMERICA DRIVES Act yardımcı ama henüz yasa değil." },
+    ],
+    followups: [
+      { text: "Tez neden hâlâ ayakta?", lang: "tr" },
+      { text: "Yaklaşan katalistler neler?", lang: "tr" },
+      { text: "Ne zaman satarsın?", lang: "tr" },
+      { text: "Why does the thesis still hold?", lang: "en" },
+      { text: "What catalysts are coming?", lang: "en" },
+      { text: "When would you sell?", lang: "en" },
+    ],
+  },
+
+  AUR_catalysts: {
+    chart_type: "catalysts",
+    title: "Aurora — Catalyst Timeline",
+    timeline: [
+      { date: "Apr 2025", text: "Ticari driverless lansman — 8.5 yıllık güvenlik geliştirmesinden sonra ilk gönderi.", status: "done" },
+      { date: "Q1 2026", text: "Dallas-Laredo driverless validasyonu — yeni rota açılışı.", status: "done" },
+      { date: "Q2 2026", text: "International LT filosu observer olmadan driverless geçiyor — kamyon sayısında basamak.", status: "upcoming" },
+      { date: "Q4 2026", text: "~200+ kamyon, ~$80M gelir run-rate. DaaS anlatısı resmen başlıyor.", status: "upcoming" },
+    ],
+    followups: [
+      { text: "Tez neden bu kadar güçlü?", lang: "tr" },
+      { text: "Riskler neler?", lang: "tr" },
+      { text: "DaaS modeli ne demek?", lang: "tr" },
+      { text: "Why is the thesis so strong?", lang: "en" },
+      { text: "What are the risks?", lang: "en" },
+      { text: "What is the DaaS model?", lang: "en" },
+    ],
+  },
+
+  // ─── Nebius narrative ────────────────────────────────────────
+
+  NBIS_thesis: {
+    chart_type: "thesis",
+    title: "Nebius — Why I'm Holding",
+    pillars: [
+      { text: "Founder-led full-stack AI altyapısı. 18 ayda sıfırdan dünya lideri arasında — Volozh patterni." },
+      { text: "Kendi kendini finanse eden hipergrowth: Microsoft $17B + Meta $3B ön ödemeleri 2026 CapEx'in ~%60'ını karşılıyor." },
+      { text: "Her çeyrek sold out. Q4'te fiyatlar +%50, 12+ aylık kontratlar 2x. Arz problemi, talep değil." },
+      { text: "Gizli değer: ClickHouse stake (~$15B), Avride, Toloka — tek başına AI cloud tezine fiyatlanmıyor." },
+    ],
+    annotation: "Pozisyon küçük (~3%) çünkü execution riski gerçek. Ama asimetri risk profiline tam oturuyor.",
+    followups: [
+      { text: "Nebius için riskler neler?", lang: "tr" },
+      { text: "Yaklaşan katalistler neler?", lang: "tr" },
+      { text: "ARR nereye gidiyor?", lang: "tr" },
+      { text: "What are the risks?", lang: "en" },
+      { text: "What catalysts are coming?", lang: "en" },
+      { text: "Where is ARR heading?", lang: "en" },
+    ],
+  },
+
+  NBIS_risks: {
+    chart_type: "risks",
+    title: "Nebius — Tezi Bozacak Şeyler",
+    risks: [
+      { title: "CapEx execution riski", body: "$16-20B 2026 CapEx olağanüstü. Veri merkezi gecikmesi, tedarik aksaklığı kapasiteyi öteler." },
+      { title: "Finansman execution riski", body: "CapEx'in ~%40'ı kurumsal borç + asset-backed finansmana bağlı. Kredi piyasası daralabilir." },
+      { title: "Talep konsantrasyonu", body: "Microsoft + Meta dev ilişkiler. Birinde execution sorunu finansal etki büyük." },
+      { title: "Hyperscaler rekabeti", body: "AWS, GCP, Azure Avrupa'da kapasite artırırsa data sovereignty argümanı zayıflar." },
+    ],
+    followups: [
+      { text: "Tez neden hâlâ ayakta?", lang: "tr" },
+      { text: "Yaklaşan katalistler neler?", lang: "tr" },
+      { text: "Ne zaman satarsın?", lang: "tr" },
+      { text: "Why does the thesis still hold?", lang: "en" },
+      { text: "What catalysts are coming?", lang: "en" },
+      { text: "When would you sell?", lang: "en" },
+    ],
+  },
+
+  NBIS_catalysts: {
+    chart_type: "catalysts",
+    title: "Nebius — Catalyst Timeline",
+    timeline: [
+      { date: "May 20 2026", text: "Bloom Energy ortaklığı: 328 MW yakıt hücresi — şebeke gecikmesini bypass.", status: "done" },
+      { date: "Jun 8 2026", text: "UK £1.7B / 65 MW genişleme; UK AI Bakanı endorse, Revolut anchor müşteri.", status: "done" },
+      { date: "Jun 9 2026", text: "Physical AI Living Lab — NVIDIA Inception → robotik startup pipeline.", status: "done" },
+      { date: "2026", text: "Microsoft + Meta tam ramp; 2026 ARR rehberi $7-9B (>%50 zaten kontratlı).", status: "upcoming" },
+    ],
+    followups: [
+      { text: "Tez neden bu kadar güçlü?", lang: "tr" },
+      { text: "Riskler neler?", lang: "tr" },
+      { text: "ClickHouse stake ne kadar?", lang: "tr" },
+      { text: "Why is the thesis so strong?", lang: "en" },
+      { text: "What are the risks?", lang: "en" },
+      { text: "How big is the ClickHouse stake?", lang: "en" },
+    ],
+  },
+
+  // ─── Tempus narrative ────────────────────────────────────────
+
+  TEM_thesis: {
+    chart_type: "thesis",
+    title: "Tempus — Why I'm Holding",
+    pillars: [
+      { text: "Hidden Moat compounder: her test daha değerli veri yaratıyor — proprietary data flywheel." },
+      { text: "Veri segmenti %73+ brüt marj, 126% NRR. Ölçek büyüdükçe karışım yüksek marjlı veriye kayıyor." },
+      { text: "2026 ilk Adj. EBITDA pozitif (~$65M). Hızla büyüyen healthcare AI şirketleri arasında ölçekte." },
+      { text: "Asimetrik opsiyon: AI algoritmaları CPT geri ödemesi alırsa, dağıtım hazır (5,000+ hastane) — $100M → $1B 'overnight'." },
+    ],
+    annotation: "Yönetim 3 yıl boyunca ~%25 onkoloji birim büyüme hedefliyor. AstraZeneca $200M foundation model deal'i tez doğrulayıcı.",
+    followups: [
+      { text: "Tempus için riskler neler?", lang: "tr" },
+      { text: "Yaklaşan katalistler neler?", lang: "tr" },
+      { text: "Veri moat'ı ne kadar derin?", lang: "tr" },
+      { text: "What are the risks?", lang: "en" },
+      { text: "What catalysts are coming?", lang: "en" },
+      { text: "How deep is the data moat?", lang: "en" },
+    ],
+  },
+
+  TEM_risks: {
+    chart_type: "risks",
+    title: "Tempus — Tezi Bozacak Şeyler",
+    risks: [
+      { title: "Borç yükü", body: "$728M convertible + $203M long-term + $209M not. May 2026 $400M sıfır faizli refinansman temizledi ama yük hâlâ var." },
+      { title: "İnorganik gelir bağımlılığı", body: "Diagnostics büyümesinin ~%50'si Ambry'den. Organik %33.5 hâlâ güçlü ama başlık rakamından düşük." },
+      { title: "Geri ödeme riski", body: "Diagnostics geliri sigorta/Medicare oranlarına bağlı. Politika değişikliği ASP'leri sıkıştırır." },
+      { title: "Rekabet", body: "Exact Sciences, Foundation Medicine (Roche), Guardant Health onkoloji genomiğinde rakip." },
+    ],
+    followups: [
+      { text: "Tez neden hâlâ ayakta?", lang: "tr" },
+      { text: "Yaklaşan katalistler neler?", lang: "tr" },
+      { text: "Ne zaman satarsın?", lang: "tr" },
+      { text: "Why does the thesis still hold?", lang: "en" },
+      { text: "What catalysts are coming?", lang: "en" },
+      { text: "When would you sell?", lang: "en" },
+    ],
+  },
+
+  TEM_catalysts: {
+    chart_type: "catalysts",
+    title: "Tempus — Catalyst Timeline",
+    timeline: [
+      { date: "Apr 2026", text: "ALERT trial: kardiyak valf prosedürlerinde %40 artış (peer-reviewed) — kardiyoloji validasyonu.", status: "done" },
+      { date: "May 27-31 2026", text: "ASCO carpet bomb: Hub, Next, xT CDx FDA, Foundation Model sonuçları, Preview, Lens — 6 büyük lansman.", status: "done" },
+      { date: "May 29 2026", text: "xT CDx tumor-only FDA onayı: 2027'den itibaren ~$200 ASP uplift — yıllık ~$68M ek gelir potansiyeli.", status: "done" },
+      { date: "2026-27", text: "xF FDA onayı (liquid biopsy), xH whole genome heme lansmanı, algoritma CPT geri ödeme opsiyonu.", status: "upcoming" },
+    ],
+    followups: [
+      { text: "Tez neden bu kadar güçlü?", lang: "tr" },
+      { text: "Riskler neler?", lang: "tr" },
+      { text: "AstraZeneca deal'i ne?", lang: "tr" },
+      { text: "Why is the thesis so strong?", lang: "en" },
+      { text: "What are the risks?", lang: "en" },
+      { text: "What's the AstraZeneca deal?", lang: "en" },
+    ],
+  },
 };

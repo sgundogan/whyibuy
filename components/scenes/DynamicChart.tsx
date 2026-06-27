@@ -20,6 +20,12 @@ export function DynamicChart({ scene }: DynamicChartProps) {
       return <DonutChart data={data} annotation={scene.annotation} source={scene.source} />;
     case "targets":
       return <TargetTable targets={scene.targets ?? []} annotation={scene.annotation} source={scene.source} />;
+    case "thesis":
+      return <ThesisCard pillars={scene.pillars ?? []} annotation={scene.annotation} source={scene.source} />;
+    case "risks":
+      return <RisksCard risks={scene.risks ?? []} annotation={scene.annotation} source={scene.source} />;
+    case "catalysts":
+      return <CatalystsTimeline timeline={scene.timeline ?? []} annotation={scene.annotation} source={scene.source} />;
     default:
       return <BarChart data={data} annotation={scene.annotation} source={scene.source} />;
   }
@@ -598,4 +604,204 @@ function formatNumber(value: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
+}
+
+// ─── Thesis Card ─────────────────────────────────────────────
+// Bullet list of the 3-4 thesis pillars distilled from the vault. Each pillar
+// gets a small gold marker; text is bright on dark. The card is intentionally
+// dense in content but visually quiet — the story is in the words.
+
+function ThesisCard({
+  pillars,
+  annotation,
+  source,
+}: {
+  pillars: { text: string }[];
+  annotation?: string;
+  source?: string;
+}) {
+  const prefersReduced = useReducedMotion();
+  if (pillars.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-6 max-md:gap-4">
+      <div
+        className="flex flex-col rounded-xl overflow-hidden p-5 max-md:p-4 gap-3 max-md:gap-2.5"
+        style={{
+          border: "1px solid rgba(200, 160, 60, 0.18)",
+          background: "rgba(200, 160, 60, 0.04)",
+        }}
+      >
+        {pillars.map((p, i) => (
+          <motion.div
+            key={`${i}-${p.text.slice(0, 12)}`}
+            className="flex items-start gap-3 max-md:gap-2.5"
+            initial={prefersReduced ? {} : { opacity: 0, x: 4 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={prefersReduced ? { duration: 0 } : { delay: i * 0.08 + 0.15, duration: 0.4 }}
+          >
+            <span
+              aria-hidden
+              className="shrink-0 mt-[6px] max-md:mt-[5px] w-1.5 h-1.5 rounded-full"
+              style={{ background: "#c8a050" }}
+            />
+            <span
+              className="text-[14px] leading-[1.45] max-md:text-[13px] max-md:leading-[1.4]"
+              style={{ color: "#d4c4a0" }}
+            >
+              {p.text}
+            </span>
+          </motion.div>
+        ))}
+      </div>
+      <Footer annotation={annotation} source={source} prefersReduced={prefersReduced} annotationDelay={pillars.length * 0.08 + 0.3} sourceDelay={pillars.length * 0.08 + 0.5} />
+    </div>
+  );
+}
+
+// ─── Risks Card ──────────────────────────────────────────────
+// Same density as Thesis but with a warning aesthetic: ⚠ marker, deeper amber
+// tone. Communicates "I'm not pumping this — here's what would change my mind."
+// Each item is title + 1-line detail.
+
+function RisksCard({
+  risks,
+  annotation,
+  source,
+}: {
+  risks: { title: string; body: string }[];
+  annotation?: string;
+  source?: string;
+}) {
+  const prefersReduced = useReducedMotion();
+  if (risks.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-6 max-md:gap-4">
+      <div
+        className="flex flex-col rounded-xl overflow-hidden"
+        style={{
+          border: "1px solid rgba(200, 110, 70, 0.18)",
+          background: "rgba(200, 110, 70, 0.04)",
+        }}
+      >
+        {risks.map((r, i) => (
+          <motion.div
+            key={`${i}-${r.title.slice(0, 12)}`}
+            className="flex items-start gap-3 px-5 py-3 max-md:px-4 max-md:py-2.5"
+            style={{
+              borderBottom: i < risks.length - 1 ? "1px solid rgba(200, 110, 70, 0.08)" : "none",
+            }}
+            initial={prefersReduced ? {} : { opacity: 0, x: 4 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={prefersReduced ? { duration: 0 } : { delay: i * 0.08 + 0.15, duration: 0.4 }}
+          >
+            <span
+              aria-hidden
+              className="shrink-0 text-[11px] mt-[3px] tabular-nums"
+              style={{ color: "#c87a5a" }}
+            >
+              ⚠
+            </span>
+            <div className="flex flex-col gap-1 min-w-0">
+              <span
+                className="text-[13px] font-medium leading-[1.3] max-md:text-[12px]"
+                style={{ color: "#d4a890" }}
+              >
+                {r.title}
+              </span>
+              <span
+                className="text-[12px] leading-[1.4] max-md:text-[11px]"
+                style={{ color: "#a89080" }}
+              >
+                {r.body}
+              </span>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+      <Footer annotation={annotation} source={source} prefersReduced={prefersReduced} annotationDelay={risks.length * 0.08 + 0.3} sourceDelay={risks.length * 0.08 + 0.5} />
+    </div>
+  );
+}
+
+// ─── Catalysts Timeline ──────────────────────────────────────
+// Vertical timeline. "done" rows are dim with a check; "upcoming" rows are
+// gold with a pending dot. A thin vertical rail connects the dots so it reads
+// as a sequence, not a list. Date is shown as-is (vault uses freeform like
+// "Jun 4 2026", "Q2 2026", "2027").
+
+function CatalystsTimeline({
+  timeline,
+  annotation,
+  source,
+}: {
+  timeline: { date: string; text: string; status: "done" | "upcoming" }[];
+  annotation?: string;
+  source?: string;
+}) {
+  const prefersReduced = useReducedMotion();
+  if (timeline.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-6 max-md:gap-4">
+      <div
+        className="relative flex flex-col rounded-xl overflow-hidden p-5 max-md:p-4"
+        style={{
+          border: "1px solid rgba(200, 160, 60, 0.18)",
+          background: "rgba(200, 160, 60, 0.04)",
+        }}
+      >
+        {/* The rail. Left-positioned so all dots line up; height covers all
+            rows. pl on each row keeps text clear of the rail. */}
+        <div
+          aria-hidden
+          className="absolute top-5 bottom-5 max-md:top-4 max-md:bottom-4 left-[26px] max-md:left-[22px] w-px"
+          style={{ background: "rgba(200, 160, 60, 0.15)" }}
+        />
+        {timeline.map((t, i) => {
+          const done = t.status === "done";
+          return (
+            <motion.div
+              key={`${i}-${t.text.slice(0, 12)}`}
+              className="flex items-start gap-3 max-md:gap-2.5 py-2 max-md:py-1.5 relative pl-1"
+              initial={prefersReduced ? {} : { opacity: 0, x: 4 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={prefersReduced ? { duration: 0 } : { delay: i * 0.07 + 0.15, duration: 0.4 }}
+            >
+              <span
+                aria-hidden
+                className="relative z-10 shrink-0 mt-[4px] w-3 h-3 rounded-full flex items-center justify-center"
+                style={{
+                  background: done ? "#0c0c0c" : "rgba(200, 160, 60, 0.95)",
+                  border: done
+                    ? "1px solid rgba(200, 160, 60, 0.35)"
+                    : "1px solid rgba(200, 160, 60, 0.95)",
+                  boxShadow: done ? "none" : "0 0 10px -2px rgba(200, 160, 60, 0.5)",
+                }}
+              >
+                {done && (
+                  <svg width="7" height="7" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path d="M5 12.5 10 17.5 19 7" stroke="rgba(200, 160, 60, 0.55)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </span>
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span
+                  className="text-[10px] tracking-[0.12em] uppercase font-medium"
+                  style={{ color: done ? "#706050" : "rgba(212, 168, 74, 0.85)" }}
+                >
+                  {t.date}
+                </span>
+                <span
+                  className="text-[13px] leading-[1.4] max-md:text-[12px]"
+                  style={{ color: done ? "#807060" : "#d4c4a0" }}
+                >
+                  {t.text}
+                </span>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+      <Footer annotation={annotation} source={source} prefersReduced={prefersReduced} annotationDelay={timeline.length * 0.07 + 0.3} sourceDelay={timeline.length * 0.07 + 0.5} />
+    </div>
+  );
 }
