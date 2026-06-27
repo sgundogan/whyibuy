@@ -36,10 +36,14 @@ export function DynamicChart({ scene }: DynamicChartProps) {
 function BarChart({ data, annotation, source }: { data: DataPoint[]; annotation?: string; source?: string }) {
   const prefersReduced = useReducedMotion();
   const maxValue = Math.max(...data.map((d) => d.value));
-  const BAR_AREA_HEIGHT = 180;
+  // 160px bar area (was 180). Trimmed universally so the bar chart + a two-line
+  // annotation + a source line + 3 follow-up chips all fit inside the dvh-bound
+  // scene window on iPhone without the third chip getting pushed under the orb.
+  // Desktop is unaffected visually — bars stay readable.
+  const BAR_AREA_HEIGHT = 160;
 
   return (
-    <div className="flex flex-col gap-6 max-md:gap-4">
+    <div className="flex flex-col gap-6 max-md:gap-3">
       <div className="flex items-end gap-[5px] max-md:gap-[3px]">
         {data.map((d, i) => {
           const barH = maxValue > 0 ? (d.value / maxValue) * BAR_AREA_HEIGHT : 0;
@@ -47,7 +51,7 @@ function BarChart({ data, annotation, source }: { data: DataPoint[]; annotation?
           const isHighlight = d.highlight ?? isLast;
 
           return (
-            <div key={`${d.label}-${i}`} className="flex-1 flex flex-col items-center gap-2 min-w-0 max-md:gap-1.5">
+            <div key={`${d.label}-${i}`} className="flex-1 flex flex-col items-center gap-2 min-w-0 max-md:gap-1">
               <motion.span
                 className="text-[10px] tabular-nums whitespace-nowrap max-md:text-[8px]"
                 style={{ color: isHighlight ? "#d4a84a" : "#706050", fontWeight: isHighlight ? 500 : 400 }}
@@ -512,7 +516,7 @@ function Footer({
 }) {
   if (!annotation && !source) return null;
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 max-md:gap-1">
       {annotation && (
         <motion.p
           className="text-[13px] leading-[1.5] tracking-[0.2px] max-md:text-[12px]"
