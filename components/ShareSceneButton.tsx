@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type RefObject } from "react";
+import { track } from "@/lib/analytics";
 
 /**
  * Share button for a scene/chart. Renders the referenced DOM node to a PNG and
@@ -38,6 +39,7 @@ export function ShareSceneButton({
   async function handleShare() {
     const node = targetRef.current;
     if (!node || state === "working") return;
+    track("share_click", { scene: title });
     setState("working");
     try {
       // Lazy-load so html-to-image (~) never touches the main bundle until the

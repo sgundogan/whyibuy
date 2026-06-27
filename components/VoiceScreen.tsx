@@ -12,6 +12,7 @@ import { useVoiceBrain } from "@/hooks/useVoiceBrain";
 import type { ActiveScene, FollowupQuestion, SceneData } from "@/hooks/useVoiceBrain";
 import { SCENE_REGISTRY } from "@/lib/scenes-data";
 import { useLang, detectLang, type Lang } from "@/lib/useLang";
+import { track } from "@/lib/analytics";
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
@@ -80,6 +81,7 @@ export function VoiceScreen() {
   }, [currentCaption, activeLang]);
 
   const handleFollowupSelect = (q: FollowupQuestion) => {
+    track("question_card_click", { source: "followup", question_text: q.text, lang: q.lang });
     if (isConnected) sendUserMessage(q.text);
   };
 
@@ -98,6 +100,9 @@ export function VoiceScreen() {
   useEffect(() => {
     if (wasConnectedRef.current && !isConnected) {
       setLandingSessionKey((k) => k + 1);
+    }
+    if (!wasConnectedRef.current && isConnected) {
+      track("voice_connected");
     }
     wasConnectedRef.current = isConnected;
   }, [isConnected]);
@@ -144,6 +149,12 @@ export function VoiceScreen() {
   }, [isConnected]);
 
   const handleSuggestedSelect = async (q: SuggestedQuestion) => {
+    track("question_card_click", {
+      source: "landing",
+      question_text: q.text,
+      lang: q.lang,
+      ticker: q.ticker,
+    });
     if (isConnected) {
       sendUserMessage(q.text);
       return;
@@ -179,10 +190,22 @@ export function VoiceScreen() {
       await endConversation();
       setHasEnded(true);
     } else {
+      track("voice_start");
       setHasEnded(false);
       await startConversation();
     }
   };
+
+  // scene_shown: fire once per distinct scene that renders (skip repeats and
+  // the null→null no-op). Tracks which charts users actually reach.
+  const lastSceneRef = useRef<string | null>(null);
+  useEffect(() => {
+    const title = activeScene?.title ?? null;
+    if (title && title !== lastSceneRef.current) {
+      track("scene_shown", { scene: title });
+    }
+    lastSceneRef.current = title;
+  }, [activeScene]);
 
 
   // Scene now persists during conversation until the AI calls show_scene with a
