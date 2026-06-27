@@ -101,7 +101,7 @@ function MetricCards({ data, annotation, source }: { data: DataPoint[]; annotati
   const prefersReduced = useReducedMotion();
 
   return (
-    <div className="flex flex-col gap-6 max-md:gap-4">
+    <div className="flex flex-col gap-6 max-md:gap-3">
       <div className="grid grid-cols-2 gap-3 max-md:gap-2.5">
         {data.map((d, i) => (
           <motion.div
@@ -161,7 +161,7 @@ function LineChart({ data, annotation, source }: { data: DataPoint[]; annotation
   const areaD = `${pathD} L ${points[points.length - 1].x} ${H - PAD_BOT} L ${points[0].x} ${H - PAD_BOT} Z`;
 
   return (
-    <div className="flex flex-col gap-6 max-md:gap-4">
+    <div className="flex flex-col gap-6 max-md:gap-3">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
         <motion.path
           d={areaD}
@@ -290,7 +290,7 @@ function DonutChart({ data, annotation, source }: { data: DataPoint[]; annotatio
   });
 
   return (
-    <div className="flex flex-col gap-6 max-md:gap-4">
+    <div className="flex flex-col gap-6 max-md:gap-3">
       <div className="flex items-center gap-6 max-md:gap-3">
         {/* Donut */}
         <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }}>
@@ -627,9 +627,9 @@ function ThesisCard({
   const prefersReduced = useReducedMotion();
   if (pillars.length === 0) return null;
   return (
-    <div className="flex flex-col gap-6 max-md:gap-4">
+    <div className="flex flex-col gap-6 max-md:gap-3">
       <div
-        className="flex flex-col rounded-xl overflow-hidden p-5 max-md:p-4 gap-3 max-md:gap-2.5"
+        className="flex flex-col rounded-xl overflow-hidden p-5 max-md:p-3.5 gap-3 max-md:gap-2"
         style={{
           border: "1px solid rgba(200, 160, 60, 0.18)",
           background: "rgba(200, 160, 60, 0.04)",
@@ -679,7 +679,7 @@ function RisksCard({
   const prefersReduced = useReducedMotion();
   if (risks.length === 0) return null;
   return (
-    <div className="flex flex-col gap-6 max-md:gap-4">
+    <div className="flex flex-col gap-6 max-md:gap-3">
       <div
         className="flex flex-col rounded-xl overflow-hidden"
         style={{
@@ -690,7 +690,7 @@ function RisksCard({
         {risks.map((r, i) => (
           <motion.div
             key={`${i}-${r.title.slice(0, 12)}`}
-            className="flex items-start gap-3 px-5 py-3 max-md:px-4 max-md:py-2.5"
+            className="flex items-start gap-3 px-5 py-3 max-md:px-3.5 max-md:py-2"
             style={{
               borderBottom: i < risks.length - 1 ? "1px solid rgba(200, 110, 70, 0.08)" : "none",
             }}
@@ -745,9 +745,9 @@ function CatalystsTimeline({
   const prefersReduced = useReducedMotion();
   if (timeline.length === 0) return null;
   return (
-    <div className="flex flex-col gap-6 max-md:gap-4">
+    <div className="flex flex-col gap-6 max-md:gap-3">
       <div
-        className="relative flex flex-col rounded-xl overflow-hidden p-5 max-md:p-4"
+        className="relative flex flex-col rounded-xl overflow-hidden p-5 max-md:p-3.5"
         style={{
           border: "1px solid rgba(200, 160, 60, 0.18)",
           background: "rgba(200, 160, 60, 0.04)",

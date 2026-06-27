@@ -272,7 +272,7 @@ export function VoiceScreen() {
               >
                 <SceneOrchestrator activeScene={activeScene} isMobile={isMobile} />
                 {activeScene?.followups && (
-                  <div className="w-full mt-4 max-md:mt-3 flex justify-start">
+                  <div className="w-full mt-4 max-md:mt-2 flex justify-start">
                     <FollowupChips
                       followups={activeScene.followups}
                       activeLang={activeLang}
