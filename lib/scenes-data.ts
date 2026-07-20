@@ -986,6 +986,27 @@ export const SCENE_REGISTRY: Record<string, SceneData> = {
     ],
   },
 
+  TEM_personalis: {
+    chart_type: "metric",
+    title: "Tempus → Personalis: MRD'yi İçselleştirmek",
+    data: [
+      { label: "Deal Enterprise Value", value: 1.5, unit: "$B" },
+      { label: "Hisse Başına", value: 16.25, unit: "$" },
+      { label: "MRD hacminin ~%97'si", value: 97, unit: "%" },
+      { label: "MRD hacim opsiyonalitesi", value: 20, unit: "x" },
+    ],
+    annotation: "Positive but cautious. Stratejik olarak doğru: crown-jewel MRD motoru (NeXT Personal whole-genome tumor-informed) artık içerde, 'Personalis nakit yanması' engeli kalkıyor → 20x hacim matematiği değişiyor. Ama ~%100 hisse takası, kârlılık öncesi dilüsyonu büyütüyor. Tutuyorum, izliyorum, ekleme yapmıyorum.",
+    source: "Tempus press release, July 20, 2026",
+    followups: [
+      { text: "Neden temkinlisin?", lang: "tr" },
+      { text: "MRD neden bu kadar önemli?", lang: "tr" },
+      { text: "Dilüsyon ne kadar büyük?", lang: "tr" },
+      { text: "Why cautious?", lang: "en" },
+      { text: "Why does MRD matter this much?", lang: "en" },
+      { text: "How big is the dilution risk?", lang: "en" },
+    ],
+  },
+
   TEM_catalysts: {
     chart_type: "catalysts",
     title: "Tempus — Catalyst Timeline",
