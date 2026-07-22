@@ -18,6 +18,38 @@ import type { SceneData } from "@/hooks/useVoiceBrain";
  * - targets — analyst price-target table (banks/research firms, NOT Serkan's view)
  */
 export const SCENE_REGISTRY: Record<string, SceneData> = {
+  // ─── Market Health (live, wide-angle view) ───────────────────
+  //
+  // Live-data scene. The placeholder metrics below get REPLACED at render
+  // time by hydrateEarningsScene() in useVoiceBrain.ts, which reads the
+  // weekly FactSet snapshot from /api/earnings/current. The values here
+  // are only shown if the fetch fails — a graceful degradation, not the
+  // real data. Cron writer: /api/cron/earnings-tally.
+  //
+  // Deliberately off the 5-ticker deep-dive path — surfaces only when the
+  // user asks the wide-angle question ("piyasa nasıl?", "earnings season
+  // nasıl geçiyor?"). Frames aggregate strength as anti-panic evidence.
+
+  EARNINGS_current: {
+    chart_type: "metric",
+    title: "S&P 500 Earnings Season",
+    data: [
+      { label: "Rapor eden", value: 0, unit: "%" },
+      { label: "EPS beklentiyi aştı", value: 0, unit: "%" },
+      { label: "Gelir beklentiyi aştı", value: 0, unit: "%" },
+    ],
+    annotation: "Yükleniyor…",
+    source: "FactSet Earnings Insight",
+    followups: [
+      { text: "Bu oran neden önemli?", lang: "tr" },
+      { text: "Geçen çeyrek ne kadardı?", lang: "tr" },
+      { text: "Piyasa çöküyor mu?", lang: "tr" },
+      { text: "Why does this matter?", lang: "en" },
+      { text: "How did last quarter compare?", lang: "en" },
+      { text: "Is the market falling apart?", lang: "en" },
+    ],
+  },
+
   // ─── Portfolio ───────────────────────────────────────────────
 
   PORTFOLIO_allocation: {
